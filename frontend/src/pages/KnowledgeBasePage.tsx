@@ -146,7 +146,21 @@ export default function KnowledgeBasePage({ userId }: { userId: string }) {
               <header>
                 <strong>{entry.proposed_title}</strong>
                 <span className="kb-meta">由 {entry.marked_by} 标记</span>
+                {entry.duplicate_of_document_id && (
+                  <span className="tag warn" title={`相似度 ${entry.duplicate_score?.toFixed(2)}`}>
+                    疑似重复
+                  </span>
+                )}
+                {entry.quality_score != null && (
+                  <span className={entry.quality_score >= 0.8 ? 'tag ok' : 'tag warn'}>
+                    质量分 {entry.quality_score.toFixed(2)}
+                  </span>
+                )}
+                {entry.auto_approved && <span className="tag write">已自动通过</span>}
               </header>
+              {entry.quality_reasoning && (
+                <p className="kb-quality-note">{entry.quality_reasoning}</p>
+              )}
               <div className="pending-body">
                 <div>
                   <span className="kb-label">问题</span>

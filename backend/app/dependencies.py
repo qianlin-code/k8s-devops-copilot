@@ -9,6 +9,7 @@ from app.agent.tools.cache import ToolResultCache
 from app.agent.tools.executor import ToolExecutor
 from app.agent.tools.registry import get_tool_registry
 from app.config import get_settings
+from app.errors import NonRetryableError
 from app.knowledge.ingest import KnowledgeIngestor
 from app.knowledge.sedimentation import SedimentationService
 from app.llm.factory import get_embedding_client, get_llm_client
@@ -63,7 +64,22 @@ def get_ingestor() -> KnowledgeIngestor:
 
 @lru_cache
 def get_sedimentation_service() -> SedimentationService:
-    return SedimentationService(get_ingestor())
+    """自动初筛依赖云端小模型，QWEN_API_KEY 未配置时 get_sedimentation_client()
+    会在真正调用时抛错——由 SedimentationService._screen 捕获并降级为人工审核，
+    这里不提前探测，避免没配置云端 Key 的用户连"标记"功能都用不了。
+    """
+    from app.llm.factory import get_sedimentation_client
+
+    try:
+        quality_client = get_sedimentation_client()
+    except NonRetryableError:
+        quality_client = None
+    return SedimentationService(
+        get_ingestor(),
+        embedding_client=get_embedding_client(),
+        vector_store=get_vector_store(),
+        quality_client=quality_client,
+    )
 
 
 def reset_dependencies() -> None:

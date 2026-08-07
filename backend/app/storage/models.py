@@ -43,6 +43,9 @@ class SedimentationStatus(str, Enum):
     REJECTED = "rejected"
 
 
+AUTO_QUALITY_REVIEWER = "system:auto-quality"
+
+
 class Conversation(Base):
     __tablename__ = "conversations"
 
@@ -179,3 +182,13 @@ class PendingSedimentation(Base):
     kb_document_id: Mapped[str | None] = mapped_column(String(36), default=None)
     created_at: Mapped[datetime] = mapped_column(DateTime, default=_utcnow)
     reviewed_at: Mapped[datetime | None] = mapped_column(DateTime, default=None)
+
+    # 自动初筛结果：云端小模型打分 + 向量相似度去重，均在 mark() 时同步产生。
+    quality_score: Mapped[float | None] = mapped_column(Float, default=None)
+    quality_reasoning: Mapped[str | None] = mapped_column(Text, default=None)
+    duplicate_of_document_id: Mapped[str | None] = mapped_column(String(36), default=None)
+    duplicate_score: Mapped[float | None] = mapped_column(Float, default=None)
+    # 高分且非重复时自动通过，reviewed_by 记 AUTO_QUALITY_REVIEWER；人工审核时记审核人 ID。
+    # 与 marked_by（谁标记的原始对话）语义不同，必须分开记录才能复盘"谁批准的"。
+    reviewed_by: Mapped[str | None] = mapped_column(String(128), default=None)
+    auto_approved: Mapped[bool] = mapped_column(Boolean, default=False)

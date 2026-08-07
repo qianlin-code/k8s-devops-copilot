@@ -293,6 +293,16 @@ export interface SedimentationEntry {
   kb_document_id?: null | string
   created_at: string
   reviewed_at?: null | string
+  /** 审核人；自动初筛通过时为 system:auto-quality */
+  reviewed_by?: null | string
+  /** 是否由自动质量初筛通过，未经人工审核 */
+  auto_approved?: boolean
+  /** 云端小模型质量初筛分数 */
+  quality_score?: null | number
+  quality_reasoning?: null | string
+  /** 非空表示疑似与已有知识库文档重复 */
+  duplicate_of_document_id?: null | string
+  duplicate_score?: null | number
 }
 
 export interface SedimentationListResponse {

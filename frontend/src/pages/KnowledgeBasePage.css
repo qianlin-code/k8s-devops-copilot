@@ -134,6 +134,13 @@
   white-space: pre-wrap;
 }
 
+.kb-quality-note {
+  margin: 0 0 8px;
+  font-size: 12px;
+  color: var(--text-dim);
+  font-style: italic;
+}
+
 .pending-actions {
   display: flex;
   gap: 8px;

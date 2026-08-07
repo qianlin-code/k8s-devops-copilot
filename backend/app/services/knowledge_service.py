@@ -167,4 +167,10 @@ def _to_entry(entry: PendingSedimentation) -> SedimentationEntry:
         kb_document_id=entry.kb_document_id,
         created_at=to_utc_iso(entry.created_at),
         reviewed_at=to_utc_iso(entry.reviewed_at) if entry.reviewed_at else None,
+        reviewed_by=entry.reviewed_by,
+        auto_approved=entry.auto_approved,
+        quality_score=entry.quality_score,
+        quality_reasoning=entry.quality_reasoning,
+        duplicate_of_document_id=entry.duplicate_of_document_id,
+        duplicate_score=entry.duplicate_score,
     )

@@ -1,12 +1,17 @@
 import uuid
 from datetime import datetime, timezone
 
+from pydantic import BaseModel, Field
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
-from app.errors import ErrorCode, NonRetryableError, NotFoundError
+from app.errors import AppError, ErrorCode, NonRetryableError, NotFoundError
 from app.knowledge.ingest import KnowledgeIngestor
+from app.llm.client import LLMClient
+from app.llm.embedding import EmbeddingClient
+from app.rag.vector_store import VectorStore
 from app.storage.models import (
+    AUTO_QUALITY_REVIEWER,
     Conversation,
     Message,
     MessageRole,
@@ -26,15 +31,48 @@ _KB_TEMPLATE = """# {title}
 由对话 {conversation_id} 沉淀，审核人 {reviewer}。
 """
 
+# 与检索侧 min_rerank_score 是不同量纲（这里是原始余弦相似度，不经过 Rerank），
+# 0.92 是较保守的阈值：宁可漏判重复也不要误删非重复内容。
+_DUPLICATE_SIMILARITY_THRESHOLD = 0.92
+# 质量分达到此阈值且非重复才自动通过，否则留给人工看分数决定
+_AUTO_APPROVE_QUALITY_THRESHOLD = 0.8
+
+_QUALITY_SYSTEM = """你是知识库沉淀内容的质量初筛员。给定一段来自客服对话的问答，评估它是否适合直接写入知识库。
+
+评分维度：
+- 完整度: 问题现象与解决方案是否说清楚了，而不是"请联系管理员"这类空泛话术
+- 可回答性: 未来别的用户问类似问题时，这段内容能否独立作为答案使用
+- 敏感信息: 是否包含真实账号密码、密钥、身份证号等不该沉淀的敏感数据（若有，quality_score 直接判 0）
+
+quality_score 综合以上给 0-1 分，reasoning 简述理由。"""
+
+
+class _QualityVerdict(BaseModel):
+    quality_score: float = Field(ge=0.0, le=1.0)
+    reasoning: str = Field(description="简述评分理由，若发现敏感信息需明确指出")
+    contains_sensitive_info: bool = Field(default=False)
+
 
 class SedimentationService:
-    """半自动沉淀：标记进待审队列，人工确认后才写入知识库。
+    """半自动沉淀：标记后自动初筛（去重 + 质量打分），高分且非重复自动入库，
+    其余留待人工审核。
 
-    MVP 不做自动触发。生产级方案还需相似度去重、质量评分、多级审校。
+    自动初筛依赖云端小模型与向量检索，两者任一不可用时降级为纯人工审核
+    （不因初筛失败阻塞标记动作）。
     """
 
-    def __init__(self, ingestor: KnowledgeIngestor) -> None:
+    def __init__(
+        self,
+        ingestor: KnowledgeIngestor,
+        *,
+        embedding_client: EmbeddingClient | None = None,
+        vector_store: VectorStore | None = None,
+        quality_client: LLMClient | None = None,
+    ) -> None:
         self._ingestor = ingestor
+        self._embed = embedding_client
+        self._store = vector_store
+        self._quality_llm = quality_client
 
     def mark(
         self,
@@ -75,7 +113,80 @@ class SedimentationService:
         )
         session.add(entry)
         session.flush()
+
+        self._screen(session, entry)
         return entry
+
+    def _screen(self, session: Session, entry: PendingSedimentation) -> None:
+        """自动初筛：先查重，重复则不再打分（重复内容没有质量可言）；
+        非重复再打质量分，达标则自动 approve。
+
+        任一步骤依赖缺失或调用失败都不应阻塞标记动作——初筛失败时
+        entry 保持 pending 状态，退化为纯人工审核，这是有意的降级路径。
+        """
+        try:
+            dup_id, dup_score = self._check_duplicate(entry)
+            entry.duplicate_of_document_id = dup_id
+            entry.duplicate_score = dup_score
+            session.flush()
+
+            if dup_id is not None:
+                return  # 疑似重复：不打分，留给人工判断是否合并或驳回
+
+            score, reasoning, sensitive = self._check_quality(entry)
+            entry.quality_score = score
+            entry.quality_reasoning = reasoning
+            session.flush()
+
+            if sensitive or score < _AUTO_APPROVE_QUALITY_THRESHOLD:
+                return  # 低分或含敏感信息：留给人工审核
+
+            self.approve(
+                session,
+                entry.id,
+                reviewer=AUTO_QUALITY_REVIEWER,
+                note=f"自动初筛通过(quality_score={score:.2f})，{reasoning}",
+                auto=True,
+            )
+        except AppError as exc:
+            # 初筛服务不可用（未配置 QWEN_API_KEY 等）时静默降级为人工审核，
+            # 不让评估调用的失败连带影响"标记"这个动作本身。
+            entry.quality_reasoning = f"自动初筛不可用({exc.code.value})，转人工审核。"
+            session.flush()
+
+    def _check_duplicate(
+        self, entry: PendingSedimentation
+    ) -> tuple[str | None, float | None]:
+        if self._embed is None or self._store is None:
+            return None, None
+        text = f"{entry.question}\n{entry.answer}"
+        vector = self._embed.embed_one(text)
+        hits = self._store.search(vector, top_k=1)
+        if not hits:
+            return None, None
+        top = hits[0]
+        if top.score >= _DUPLICATE_SIMILARITY_THRESHOLD:
+            return top.document_id, top.score
+        return None, top.score
+
+    def _check_quality(
+        self, entry: PendingSedimentation
+    ) -> tuple[float, str, bool]:
+        if self._quality_llm is None:
+            raise NonRetryableError(
+                "Quality screening client is not configured",
+                code=ErrorCode.VALIDATION_FAILED,
+            )
+        payload = f"[问题]\n{entry.question}\n\n[回答]\n{entry.answer}"
+        verdict = self._quality_llm.structured(
+            [
+                {"role": "system", "content": _QUALITY_SYSTEM},
+                {"role": "user", "content": payload},
+            ],
+            _QualityVerdict,
+        )
+        score = 0.0 if verdict.contains_sensitive_info else verdict.quality_score
+        return score, verdict.reasoning, verdict.contains_sensitive_info
 
     def list_pending(
         self, session: Session, status: str | None = None
@@ -95,7 +206,11 @@ class SedimentationService:
         reviewer: str,
         title_override: str | None = None,
         note: str | None = None,
+        auto: bool = False,
     ) -> PendingSedimentation:
+        """auto=True 表示自动初筛通过（reviewer 固定传 AUTO_QUALITY_REVIEWER），
+        留痕在 reviewed_by/auto_approved，与人工审核区分，方便复盘谁批准的。
+        """
         entry = self._get_pending(session, pending_id)
         title = (title_override or entry.proposed_title).strip()
         document = _KB_TEMPLATE.format(
@@ -116,6 +231,8 @@ class SedimentationService:
         entry.kb_document_id = result.document_id
         entry.review_note = note
         entry.reviewed_at = datetime.now(timezone.utc)
+        entry.reviewed_by = reviewer
+        entry.auto_approved = auto
         session.flush()
         return entry
 
@@ -126,6 +243,7 @@ class SedimentationService:
         entry.status = SedimentationStatus.REJECTED.value
         entry.review_note = note or f"rejected by {reviewer}"
         entry.reviewed_at = datetime.now(timezone.utc)
+        entry.reviewed_by = reviewer
         session.flush()
         return entry
 

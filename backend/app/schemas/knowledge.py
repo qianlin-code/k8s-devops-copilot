@@ -79,6 +79,16 @@ class SedimentationEntry(StrictBaseModel):
     kb_document_id: Optional[str] = None
     created_at: str
     reviewed_at: Optional[str] = None
+    reviewed_by: Optional[str] = Field(
+        default=None, description="审核人；自动初筛通过时为 system:auto-quality"
+    )
+    auto_approved: bool = Field(default=False, description="是否由自动质量初筛通过，未经人工审核")
+    quality_score: Optional[float] = Field(default=None, description="云端小模型质量初筛分数")
+    quality_reasoning: Optional[str] = None
+    duplicate_of_document_id: Optional[str] = Field(
+        default=None, description="非空表示疑似与已有知识库文档重复"
+    )
+    duplicate_score: Optional[float] = None
 
 
 class SedimentationListResponse(StrictBaseModel):
