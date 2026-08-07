@@ -135,8 +135,8 @@ export default function KnowledgeBasePage({ userId }: { userId: string }) {
           {pending && pending.total > 0 && <span className="badge">{pending.total}</span>}
         </h3>
         <p className="kb-hint">
-          标记的优质对话不会自动入库，必须在此人工确认。生产级方案还会加入相似度去重、
-          质量评分与多级审校。
+          标记的优质对话会先经自动初筛（去重 + 质量评分），高分且非重复的内容自动入库，
+          其余条目留待人工确认。生产级方案还需人工复审自动通过的条目（多级审校）。
         </p>
         {!pending || pending.total === 0 ? (
           <p className="kb-empty">当前没有待审条目。</p>
