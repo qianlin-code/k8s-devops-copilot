@@ -1,0 +1,122 @@
+import asyncio
+import logging
+import time
+from contextlib import asynccontextmanager
+
+from fastapi import Depends, FastAPI
+from fastapi.middleware.cors import CORSMiddleware
+
+from app.api import routes_chat, routes_health, routes_history, routes_kb
+from app.auth import require_api_key
+from app.config import Environment, get_settings
+from app.exception_handlers import register_exception_handlers
+from app.middleware import TraceMiddleware
+from app.rag.reranker import preload_reranker
+from app.schemas.common import DependencyCheck, ReadinessResponse
+from app.startup_checks import run_startup_checks
+from app.tracing.logger import configure_logging, get_logger, log_event
+
+logger = get_logger(__name__)
+_readiness: list[DependencyCheck] = []
+
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    configure_logging()
+    settings = get_settings()
+    outcomes = run_startup_checks(strict=settings.environment is Environment.PROD)
+    _readiness.clear()
+    for o in outcomes:
+        _readiness.append(
+            DependencyCheck(
+                name=o.name, ok=o.ok, detail=o.detail, elapsed_ms=o.elapsed_ms
+            )
+        )
+        log_event(
+            logger,
+            logging.INFO if o.ok else logging.WARNING,
+            "startup_check",
+            check=o.name,
+            ok=o.ok,
+            detail=o.detail,
+            elapsed_ms=o.elapsed_ms,
+        )
+
+    # Rerank 模型冷启动要十几秒（含 HuggingFace 版本校验）。不预热的话
+    # 这笔开销会落在第一个用户请求上——实测国内网络下 HF 校验重试让首个
+    # 请求多等 300s。后台加载：服务立即可用，模型就绪前检索自动降级为
+    # RRF 融合顺序。
+    warmup = asyncio.create_task(_warmup_reranker())
+    try:
+        yield
+    finally:
+        warmup.cancel()
+
+
+async def _warmup_reranker() -> None:
+    if not get_settings().warmup_reranker:
+        return
+    started = time.perf_counter()
+    try:
+        # 同步阻塞的模型加载放线程，别卡住事件循环
+        await asyncio.to_thread(preload_reranker)
+    except Exception as exc:  # noqa: BLE001
+        log_event(
+            logger,
+            logging.WARNING,
+            "reranker_warmup_failed",
+            detail=f"{type(exc).__name__}: {exc}"[:200],
+        )
+        return
+    log_event(
+        logger,
+        logging.INFO,
+        "reranker_warmed_up",
+        elapsed_ms=int((time.perf_counter() - started) * 1000),
+    )
+
+
+def create_app() -> FastAPI:
+    app = FastAPI(
+        title="Enterprise Support Copilot",
+        version="0.1.0",
+        description=(
+            "RAG + Agent closed-loop copilot for enterprise IT support. "
+            "Every response carries the full execution trace."
+        ),
+        lifespan=lifespan,
+    )
+    app.add_middleware(TraceMiddleware)
+    app.add_middleware(
+        CORSMiddleware,
+        # 生产必须显式配置真实来源；带 localhost 或 '*' 会在启动校验时被拒
+        allow_origins=get_settings().cors_allow_origins,
+        allow_credentials=True,
+        allow_methods=["GET", "POST", "DELETE", "OPTIONS"],
+        allow_headers=["Content-Type", "X-API-Key"],
+        expose_headers=["X-Trace-Id"],
+    )
+    register_exception_handlers(app)
+
+    prefix = "/api/v1"
+    app.include_router(routes_health.router, prefix=prefix)
+    app.include_router(routes_chat.router, prefix=prefix)
+    app.include_router(routes_kb.router, prefix=prefix)
+    app.include_router(routes_history.router, prefix=prefix)
+
+    @app.get(
+        f"{prefix}/readiness",
+        response_model=ReadinessResponse,
+        tags=["health"],
+        summary="依赖可用性明细",
+        dependencies=[Depends(require_api_key)],
+    )
+    async def readiness() -> ReadinessResponse:
+        return ReadinessResponse(
+            ready=all(c.ok for c in _readiness), checks=list(_readiness)
+        )
+
+    return app
+
+
+app = create_app()

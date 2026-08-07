@@ -1,0 +1,197 @@
+{
+  "endpoint": "chat/confirm",
+  "http_status": 200,
+  "request": {
+    "conversation_id": "2de306cf-b4dd-4a53-abf7-a78f96e44c9e",
+    "user_id": "u-1001",
+    "confirmation_token": "<token from pending_write>",
+    "approved": true
+  },
+  "response": {
+    "conversation_id": "2de306cf-b4dd-4a53-abf7-a78f96e44c9e",
+    "message_id": 9,
+    "outcome": "tool_assisted_answer",
+    "answer": "权限缓存已刷新（版本 2 → 3）。请重新登录验证，如果仍然 403 请告诉我，我会为您创建工单。",
+    "pending_write": null,
+    "trace": {
+      "trace_id": "6829f84a2906470496dc275119278595",
+      "total_elapsed_ms": 13,
+      "context": {
+        "total_turns": 1,
+        "windowed_turns": 1,
+        "summarized": false,
+        "summary_source_turns": 0,
+        "degrade_reason": null,
+        "summary": null
+      },
+      "retrieval": {
+        "query_rewrite": {
+          "original": "管理员已经给我提权了，但还是 403，请帮我刷新权限缓存",
+          "rewritten": "管理员已经给我提权了，但还是 403，请帮我刷新权限缓存",
+          "applied": false,
+          "keywords": [],
+          "skip_reason": "disabled"
+        },
+        "hybrid_enabled": true,
+        "rerank_applied": true,
+        "stages": [
+          {
+            "name": "query_rewrite",
+            "hit_count": 0,
+            "elapsed_ms": 0,
+            "top_chunk_ids": [],
+            "note": "disabled"
+          },
+          {
+            "name": "vector_search",
+            "hit_count": 2,
+            "elapsed_ms": 0,
+            "top_chunk_ids": [
+              "8e8fcdd6-c0fb-4d71-8325-a51654b160a1",
+              "3986d24a-1d5a-48dd-a0fc-38d14800789b"
+            ],
+            "note": null
+          },
+          {
+            "name": "bm25_search",
+            "hit_count": 0,
+            "elapsed_ms": 1,
+            "top_chunk_ids": [],
+            "note": null
+          },
+          {
+            "name": "rrf_fusion",
+            "hit_count": 2,
+            "elapsed_ms": 0,
+            "top_chunk_ids": [
+              "8e8fcdd6-c0fb-4d71-8325-a51654b160a1",
+              "3986d24a-1d5a-48dd-a0fc-38d14800789b"
+            ],
+            "note": null
+          },
+          {
+            "name": "rerank",
+            "hit_count": 2,
+            "elapsed_ms": 0,
+            "top_chunk_ids": [
+              "3986d24a-1d5a-48dd-a0fc-38d14800789b",
+              "8e8fcdd6-c0fb-4d71-8325-a51654b160a1"
+            ],
+            "note": null
+          },
+          {
+            "name": "relevance_filter",
+            "hit_count": 1,
+            "elapsed_ms": 0,
+            "top_chunk_ids": [],
+            "note": "threshold=0.15 dropped=1"
+          }
+        ],
+        "citations": [
+          {
+            "index": 1,
+            "chunk_id": "3986d24a-1d5a-48dd-a0fc-38d14800789b",
+            "document_id": "02919c68-37b0-415a-a21e-69625fc9f31d",
+            "document_title": "登录故障排查手册",
+            "citation_label": "登录故障排查手册 / 403 Forbidden 权限不足",
+            "heading_path": [
+              "登录故障排查手册",
+              "403 Forbidden 权限不足"
+            ],
+            "text": "账号 permission_level 为 restricted 时登录会返回 403，需要管理员将权限提升到 standard，随后刷新权限缓存使变更生效。",
+            "rerank_score": 0.3636,
+            "rank_before": 2,
+            "rank_after": 1
+          }
+        ]
+      },
+      "route_decisions": [
+        {
+          "round": 1,
+          "action": "answer",
+          "reasoning": "缓存已刷新，可以告知用户结果",
+          "confidence": 0.95,
+          "tool_name": null,
+          "tool_arguments": {}
+        }
+      ],
+      "tool_calls": [
+        {
+          "tool_name": "reset_permission_cache",
+          "is_write": true,
+          "arguments": {
+            "request_id": "req-example-0001",
+            "user_id": "u-1001",
+            "reason": "管理员提权后刷新缓存"
+          },
+          "success": true,
+          "result": {
+            "user_id": "u-1001",
+            "previous_cache_version": 2,
+            "new_cache_version": 3,
+            "message": "权限缓存已刷新，请让用户重新登录验证。"
+          },
+          "error_code": null,
+          "error_message": null,
+          "cache_hit": false,
+          "idempotent_replay": false,
+          "elapsed_ms": 4
+        }
+      ],
+      "sufficiency": {
+        "sufficient": true,
+        "reasoning": "写操作已成功执行并返回新版本号",
+        "missing_information": [],
+        "suggested_next_step": null
+      },
+      "steps": [
+        {
+          "step": 1,
+          "node": "execute_confirmed_write",
+          "detail": {
+            "tool_name": "reset_permission_cache",
+            "is_write": true,
+            "success": true,
+            "cache_hit": false,
+            "idempotent_replay": false,
+            "error_code": null,
+            "elapsed_ms": 4
+          }
+        },
+        {
+          "step": 2,
+          "node": "route",
+          "detail": {
+            "round": 1,
+            "action": "answer",
+            "reasoning": "缓存已刷新，可以告知用户结果",
+            "confidence": 0.95,
+            "tool_name": null
+          }
+        },
+        {
+          "step": 3,
+          "node": "verify_sufficiency",
+          "detail": {
+            "sufficient": true,
+            "reasoning": "写操作已成功执行并返回新版本号",
+            "missing_information": []
+          }
+        },
+        {
+          "step": 4,
+          "node": "generate_answer",
+          "detail": {
+            "length": 49
+          }
+        }
+      ],
+      "security": {
+        "input_flags": [],
+        "output_redactions": []
+      },
+      "agent_max_steps": 4
+    },
+    "created_at": "2026-08-07T12:34:32.183727Z"
+  }
+}

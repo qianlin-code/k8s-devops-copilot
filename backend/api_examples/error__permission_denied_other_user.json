@@ -1,0 +1,16 @@
+{
+  "endpoint": "error",
+  "http_status": 403,
+  "request": {
+    "question": "继续",
+    "user_id": "u-9999",
+    "conversation_id": "d080358e-455a-4116-b5b9-84f6084fd320"
+  },
+  "response": {
+    "code": "TOOL_PERMISSION_DENIED",
+    "message": "Conversation belongs to a different user",
+    "trace_id": "c296e8c13cef4d809d9d9cbcf862cfbf",
+    "retryable": false,
+    "details": {}
+  }
+}

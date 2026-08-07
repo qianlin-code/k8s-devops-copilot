@@ -1,0 +1,41 @@
+services:
+  backend:
+    build:
+      context: ./backend
+      args:
+        # 改为 true 会在镜像里装 torch + FlagEmbedding（约 +2 GB）
+        WITH_RERANK: "false"
+    env_file:
+      - ./backend/.env
+    environment:
+      # 容器内访问宿主机的 Ollama
+      OLLAMA_BASE_URL: http://host.docker.internal:11434/v1
+      DATABASE_URL: sqlite:////app/data/app.db
+      QDRANT_PATH: /app/data/qdrant_storage
+      # 这份 compose 面向本地开发/演示。上生产请改为 prod ——
+      # 届时启动校验会强制要求强 API_KEY 与真实 CORS 来源（见 config.py）。
+      ENVIRONMENT: ${ENVIRONMENT:-dev}
+    ports:
+      - "8000:8000"
+    volumes:
+      # 数据持久化：SQLite 与向量库不随容器销毁
+      - copilot-data:/app/data
+      # Rerank 模型缓存，避免每次重建镜像重新下载
+      - hf-cache:/root/.cache/huggingface
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    restart: unless-stopped
+
+  frontend:
+    build:
+      context: ./frontend
+    ports:
+      - "5173:80"
+    depends_on:
+      backend:
+        condition: service_healthy
+    restart: unless-stopped
+
+volumes:
+  copilot-data:
+  hf-cache:

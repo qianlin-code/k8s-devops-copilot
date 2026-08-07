@@ -1,0 +1,23 @@
+{
+  "endpoint": "knowledge/sedimentations",
+  "http_status": 200,
+  "request": null,
+  "response": {
+    "total": 1,
+    "entries": [
+      {
+        "pending_id": "ce49cc7f-c5c3-4f4e-96aa-6e795b03eb29",
+        "conversation_id": "d080358e-455a-4116-b5b9-84f6084fd320",
+        "question": "账号 u-1001 登录提示 403 Forbidden 该怎么处理",
+        "answer": "根据《登录故障排查手册》[1]，账号的 permission_level 为 restricted 时会返回 403。请让管理员将权限提升到 standard，然后刷新权限缓存。",
+        "proposed_title": "403 Forbidden 登录失败处理流程",
+        "marked_by": "admin",
+        "status": "pending",
+        "review_note": null,
+        "kb_document_id": null,
+        "created_at": "2026-08-07T12:34:32.352479Z",
+        "reviewed_at": null
+      }
+    ]
+  }
+}

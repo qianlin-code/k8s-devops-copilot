@@ -1,0 +1,130 @@
+.history-page {
+  display: grid;
+  grid-template-columns: 288px 1fr;
+  height: 100%;
+  min-height: 0;
+}
+
+.history-list {
+  border-right: 1px solid var(--border);
+  overflow-y: auto;
+  padding: 14px;
+}
+
+.history-list h3 {
+  margin: 0 0 10px;
+  font-size: 14px;
+}
+
+.conv {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  width: 100%;
+  text-align: left;
+  padding: 9px 11px;
+  margin-bottom: 6px;
+  background: var(--bg-panel);
+  border-radius: var(--radius);
+}
+
+.conv.active {
+  border-color: var(--accent);
+  background: var(--bg-elevated);
+}
+
+.conv-title {
+  font-size: 13px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.conv-meta {
+  font-size: 11px;
+  color: var(--text-dim);
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.history-detail {
+  overflow-y: auto;
+  padding: 16px 20px;
+}
+
+.detail-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: 12px;
+  margin-bottom: 12px;
+  flex-wrap: wrap;
+}
+
+.detail-head h3 {
+  margin: 0;
+  font-size: 15px;
+}
+
+.detail-summary {
+  border-left: 2px solid var(--accent-dim);
+  background: var(--bg-panel);
+  padding: 8px 12px;
+  border-radius: 0 var(--radius) var(--radius) 0;
+  margin-bottom: 16px;
+}
+
+.detail-summary p {
+  margin: 3px 0 0;
+  font-size: 13px;
+  color: var(--text-dim);
+}
+
+.hist-msg {
+  display: flex;
+  gap: 12px;
+  margin-bottom: 18px;
+}
+
+.hist-role {
+  flex: 0 0 62px;
+  font-size: 12px;
+  color: var(--text-dim);
+}
+
+.hist-msg.user .hist-role {
+  color: var(--accent);
+}
+
+.hist-body {
+  flex: 1;
+  min-width: 0;
+}
+
+.hist-text {
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
+.audit {
+  margin-top: 22px;
+  border-top: 1px solid var(--border);
+  padding-top: 14px;
+}
+
+.audit h4 {
+  margin: 0 0 10px;
+  font-size: 13px;
+}
+
+@media (max-width: 900px) {
+  .history-page {
+    grid-template-columns: 1fr;
+  }
+  .history-list {
+    border-right: none;
+    border-bottom: 1px solid var(--border);
+    max-height: 220px;
+  }
+}

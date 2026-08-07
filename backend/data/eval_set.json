@@ -1,0 +1,216 @@
+{
+  "description": "检索评估标注集。expected_keywords 命中任一即认为该片段相关。difficulty 用于分层看指标: easy=含文档术语可被 BM25 直接命中; hard=纯口语化或易混淆, 需要语义理解与重排。",
+  "cases": [
+    {
+      "id": "q01",
+      "query": "登录提示 403 是什么原因",
+      "expected_keywords": ["permission_level", "restricted"],
+      "difficulty": "easy",
+      "note": "标准语义查询"
+    },
+    {
+      "id": "q02",
+      "query": "permission_level restricted 怎么处理",
+      "expected_keywords": ["permission_level", "standard"],
+      "difficulty": "easy",
+      "note": "专有字段名，考察 BM25 精确匹配"
+    },
+    {
+      "id": "q03",
+      "query": "账号被锁了要等多久",
+      "expected_keywords": ["locked", "30 分钟", "风控"],
+      "difficulty": "easy",
+      "note": "口语化描述"
+    },
+    {
+      "id": "q04",
+      "query": "SignatureVerificationError 报错",
+      "expected_keywords": ["SignatureVerificationError", "SAML", "证书"],
+      "difficulty": "easy",
+      "note": "错误类名，纯向量检索容易失手"
+    },
+    {
+      "id": "q05",
+      "query": "504 Gateway Timeout 内网打不开",
+      "expected_keywords": ["504", "防火墙", "443"],
+      "difficulty": "easy",
+      "note": "错误码 + 场景"
+    },
+    {
+      "id": "q06",
+      "query": "suspended 状态能刷新权限缓存吗",
+      "expected_keywords": ["suspended", "无法执行权限缓存刷新"],
+      "difficulty": "easy",
+      "note": "考察是否命中约束条款"
+    },
+    {
+      "id": "q07",
+      "query": "欠费了服务什么时候恢复",
+      "expected_keywords": ["overdue", "1 小时内自动恢复"],
+      "difficulty": "easy",
+      "note": "业务时效问题"
+    },
+    {
+      "id": "q08",
+      "query": "redirect_uri 不一致导致白屏",
+      "expected_keywords": ["redirect_uri", "CORS"],
+      "difficulty": "easy",
+      "note": "技术参数名"
+    },
+    {
+      "id": "q09",
+      "query": "token 多久过期",
+      "expected_keywords": ["8 小时", "令牌"],
+      "difficulty": "easy",
+      "note": "缩写词查询"
+    },
+    {
+      "id": "q10",
+      "query": "VPN 老是掉线怎么办",
+      "expected_keywords": ["VPN", "IP 绑定"],
+      "difficulty": "easy",
+      "note": "口语化 + 缩写"
+    },
+    {
+      "id": "q11",
+      "query": "提权之后多久生效",
+      "expected_keywords": ["刷新权限缓存", "15 分钟"],
+      "difficulty": "hard",
+      "note": "需要命中缓存相关段落"
+    },
+    {
+      "id": "q12",
+      "query": "401 和 403 有什么区别",
+      "expected_keywords": ["401", "403"],
+      "difficulty": "easy",
+      "note": "对比类问题，跨小节"
+    },
+
+    {
+      "id": "q13",
+      "query": "同事都能进就我进不去，说我没有权限",
+      "expected_keywords": ["permission_level", "restricted"],
+      "difficulty": "hard",
+      "note": "纯口语化，不含任何错误码或字段名，只能靠语义"
+    },
+    {
+      "id": "q14",
+      "query": "早上还好好的，现在一直让我重新登录",
+      "expected_keywords": ["令牌", "8 小时", "401"],
+      "difficulty": "hard",
+      "note": "口语化描述令牌过期，易与账号锁定混淆"
+    },
+    {
+      "id": "q15",
+      "query": "密码输错太多次被系统挡住了",
+      "expected_keywords": ["locked", "风控", "30 分钟"],
+      "difficulty": "hard",
+      "note": "口语化，须区别于 403 权限不足"
+    },
+    {
+      "id": "q16",
+      "query": "在家用手机能登，到公司电脑就转圈打不开",
+      "expected_keywords": ["504", "防火墙", "443"],
+      "difficulty": "hard",
+      "note": "口语化描述内网超时，干扰项是 VPN 掉线"
+    },
+    {
+      "id": "q17",
+      "query": "点了企业微信登录之后就一片空白",
+      "expected_keywords": ["redirect_uri", "CORS", "白屏"],
+      "difficulty": "hard",
+      "note": "口语化描述 SSO 白屏"
+    },
+    {
+      "id": "q18",
+      "query": "管理员给我加了权限但还是进不去",
+      "expected_keywords": ["刷新权限缓存", "15 分钟"],
+      "difficulty": "hard",
+      "note": "多跳: 需理解已提权但缓存未刷新，而非权限本身不足"
+    },
+    {
+      "id": "q19",
+      "query": "改完 SAML 配置需要重启服务吗",
+      "expected_keywords": ["无需重启", "热加载", "5 分钟"],
+      "difficulty": "hard",
+      "note": "考察是否命中运维约束细节"
+    },
+    {
+      "id": "q20",
+      "query": "付了钱多久能用",
+      "expected_keywords": ["overdue", "1 小时内自动恢复"],
+      "difficulty": "hard",
+      "note": "极简口语，无任何术语"
+    },
+    {
+      "id": "q21",
+      "query": "所有功能都用不了，提示服务已暂停",
+      "expected_keywords": ["suspended", "逾期", "暂停"],
+      "difficulty": "hard",
+      "note": "现象描述，须区别于账号锁定与权限不足"
+    },
+    {
+      "id": "q22",
+      "query": "登录证书过期了怎么更新",
+      "expected_keywords": ["metadata", "SAML", "元数据"],
+      "difficulty": "hard",
+      "note": "用户用词与文档不一致(证书 vs 元数据/签名证书)"
+    },
+    {
+      "id": "q23",
+      "query": "换成固定 IP 的节点能解决掉线吗",
+      "expected_keywords": ["VPN", "IP 绑定", "固定出口"],
+      "difficulty": "hard",
+      "note": "针对处理步骤而非现象提问"
+    },
+    {
+      "id": "q24",
+      "query": "怎么用命令行定位到底哪一层被拦了",
+      "expected_keywords": ["curl", "握手", "阻断"],
+      "difficulty": "hard",
+      "note": "指向具体排查手段，只在处理步骤中出现"
+    },
+    {
+      "id": "q25",
+      "query": "浏览器缓存需要清吗",
+      "expected_keywords": ["清理浏览器缓存", "CORS", "白屏"],
+      "difficulty": "hard",
+      "note": "细节步骤查询，语义信号弱"
+    },
+    {
+      "id": "q26",
+      "query": "restricted 和 standard 有什么差别",
+      "expected_keywords": ["permission_level", "standard", "restricted"],
+      "difficulty": "easy",
+      "note": "术语对比"
+    },
+    {
+      "id": "q27",
+      "query": "登不上去也不报错就是白屏",
+      "expected_keywords": ["白屏", "CORS", "redirect_uri"],
+      "difficulty": "hard",
+      "note": "模糊现象，与多个故障都有弱关联"
+    },
+    {
+      "id": "q28",
+      "query": "断言签名无效是什么意思",
+      "expected_keywords": ["SignatureVerificationError", "证书", "SAML"],
+      "difficulty": "easy",
+      "note": "文档原词"
+    },
+    {
+      "id": "q29",
+      "query": "为什么手机流量可以电脑不行",
+      "expected_keywords": ["防火墙", "504", "代理"],
+      "difficulty": "hard",
+      "note": "对比现象，须定位到网络而非账号问题"
+    },
+    {
+      "id": "q30",
+      "query": "提权要找谁操作",
+      "expected_keywords": ["空间管理员", "后台提权", "standard"],
+      "difficulty": "hard",
+      "note": "指向处理步骤中的责任人"
+    }
+  ]
+}

@@ -1,0 +1,229 @@
+{
+  "endpoint": "chat",
+  "http_status": 200,
+  "request": {
+    "question": "所有配置都正常但就是间歇性 403，非常诡异",
+    "user_id": "u-1001"
+  },
+  "response": {
+    "conversation_id": "19fe2c9c-4c1f-4697-baae-a63d2915cab7",
+    "message_id": 16,
+    "outcome": "tool_assisted_answer",
+    "answer": "替身默认回答。",
+    "pending_write": null,
+    "trace": {
+      "trace_id": "a6fe3e15a4ab407fa316b5cdc265bf78",
+      "total_elapsed_ms": 7,
+      "context": {
+        "total_turns": 0,
+        "windowed_turns": 0,
+        "summarized": false,
+        "summary_source_turns": 0,
+        "degrade_reason": null,
+        "summary": null
+      },
+      "retrieval": {
+        "query_rewrite": {
+          "original": "所有配置都正常但就是间歇性 403，非常诡异",
+          "rewritten": "所有配置都正常但就是间歇性 403，非常诡异",
+          "applied": false,
+          "keywords": [],
+          "skip_reason": "disabled"
+        },
+        "hybrid_enabled": true,
+        "rerank_applied": true,
+        "stages": [
+          {
+            "name": "query_rewrite",
+            "hit_count": 0,
+            "elapsed_ms": 0,
+            "top_chunk_ids": [],
+            "note": "disabled"
+          },
+          {
+            "name": "vector_search",
+            "hit_count": 2,
+            "elapsed_ms": 0,
+            "top_chunk_ids": [
+              "8e8fcdd6-c0fb-4d71-8325-a51654b160a1",
+              "3986d24a-1d5a-48dd-a0fc-38d14800789b"
+            ],
+            "note": null
+          },
+          {
+            "name": "bm25_search",
+            "hit_count": 0,
+            "elapsed_ms": 1,
+            "top_chunk_ids": [],
+            "note": null
+          },
+          {
+            "name": "rrf_fusion",
+            "hit_count": 2,
+            "elapsed_ms": 0,
+            "top_chunk_ids": [
+              "8e8fcdd6-c0fb-4d71-8325-a51654b160a1",
+              "3986d24a-1d5a-48dd-a0fc-38d14800789b"
+            ],
+            "note": null
+          },
+          {
+            "name": "rerank",
+            "hit_count": 2,
+            "elapsed_ms": 0,
+            "top_chunk_ids": [
+              "3986d24a-1d5a-48dd-a0fc-38d14800789b",
+              "8e8fcdd6-c0fb-4d71-8325-a51654b160a1"
+            ],
+            "note": null
+          },
+          {
+            "name": "relevance_filter",
+            "hit_count": 0,
+            "elapsed_ms": 0,
+            "top_chunk_ids": [],
+            "note": "threshold=0.15 dropped=2"
+          }
+        ],
+        "citations": []
+      },
+      "route_decisions": [
+        {
+          "round": 1,
+          "action": "call_tool",
+          "reasoning": "信息仍然不足，再查一次账号状态",
+          "confidence": 0.5,
+          "tool_name": "get_account_status",
+          "tool_arguments": {
+            "user_id": "u-1001"
+          }
+        },
+        {
+          "round": 2,
+          "action": "call_tool",
+          "reasoning": "信息仍然不足，再查一次账号状态",
+          "confidence": 0.5,
+          "tool_name": "get_account_status",
+          "tool_arguments": {
+            "user_id": "u-1001"
+          }
+        }
+      ],
+      "tool_calls": [
+        {
+          "tool_name": "get_account_status",
+          "is_write": false,
+          "arguments": {
+            "user_id": "u-1001"
+          },
+          "success": true,
+          "result": {
+            "user_id": "u-1001",
+            "email": "li.wei@acme-corp.com",
+            "status": "active",
+            "permission_level": "restricted",
+            "locked_reason": null,
+            "last_login_at": "2026-08-01T03:00:00Z",
+            "cache_version": 3
+          },
+          "error_code": null,
+          "error_message": null,
+          "cache_hit": false,
+          "idempotent_replay": false,
+          "elapsed_ms": 0
+        }
+      ],
+      "sufficiency": {
+        "sufficient": false,
+        "reasoning": "账号状态正常，无法解释该现象，仍缺少服务端日志",
+        "missing_information": [
+          "网关访问日志",
+          "客户端请求头"
+        ],
+        "suggested_next_step": "调取网关日志后再判断"
+      },
+      "steps": [
+        {
+          "step": 1,
+          "node": "route",
+          "detail": {
+            "round": 1,
+            "action": "call_tool",
+            "reasoning": "信息仍然不足，再查一次账号状态",
+            "confidence": 0.5,
+            "tool_name": "get_account_status"
+          }
+        },
+        {
+          "step": 2,
+          "node": "execute_tool",
+          "detail": {
+            "tool_name": "get_account_status",
+            "is_write": false,
+            "success": true,
+            "cache_hit": false,
+            "idempotent_replay": false,
+            "error_code": null,
+            "elapsed_ms": 0
+          }
+        },
+        {
+          "step": 3,
+          "node": "verify_sufficiency",
+          "detail": {
+            "sufficient": false,
+            "reasoning": "账号状态正常，无法解释该现象，仍缺少服务端日志",
+            "missing_information": [
+              "网关访问日志",
+              "客户端请求头"
+            ]
+          }
+        },
+        {
+          "step": 4,
+          "node": "route",
+          "detail": {
+            "round": 2,
+            "action": "call_tool",
+            "reasoning": "信息仍然不足，再查一次账号状态",
+            "confidence": 0.5,
+            "tool_name": "get_account_status"
+          }
+        },
+        {
+          "step": 5,
+          "node": "skip_already_executed_call",
+          "detail": {
+            "tool_name": "get_account_status",
+            "signature": "get_account_status({\"user_id\": \"u-1001\"})"
+          }
+        },
+        {
+          "step": 6,
+          "node": "verify_sufficiency",
+          "detail": {
+            "sufficient": false,
+            "reasoning": "账号状态正常，无法解释该现象，仍缺少服务端日志",
+            "missing_information": [
+              "网关访问日志",
+              "客户端请求头"
+            ]
+          }
+        },
+        {
+          "step": 7,
+          "node": "generate_answer",
+          "detail": {
+            "length": 7
+          }
+        }
+      ],
+      "security": {
+        "input_flags": [],
+        "output_redactions": []
+      },
+      "agent_max_steps": 4
+    },
+    "created_at": "2026-08-07T12:34:32.237976Z"
+  }
+}

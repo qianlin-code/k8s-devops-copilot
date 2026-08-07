@@ -1,0 +1,24 @@
+{
+  "endpoint": "conversations/detail",
+  "http_status": 422,
+  "request": null,
+  "response": {
+    "code": "VALIDATION_FAILED",
+    "message": "Request payload does not match the API contract",
+    "trace_id": "ac5adaad5f064ae1905aa1bea31f5a91",
+    "retryable": false,
+    "details": {
+      "violations": [
+        {
+          "type": "missing",
+          "loc": [
+            "query",
+            "user_id"
+          ],
+          "msg": "Field required",
+          "input": null
+        }
+      ]
+    }
+  }
+}

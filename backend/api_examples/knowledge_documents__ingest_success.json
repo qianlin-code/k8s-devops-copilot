@@ -1,0 +1,23 @@
+{
+  "endpoint": "knowledge/documents",
+  "http_status": 200,
+  "request": {
+    "title": "登录故障排查手册",
+    "content": "# 登录故障排查手册\n\n## 403 Forbidden 权限不足\n账号 permission_level 为 restricted 时登录会返回 403，需要管理员将权限提升到 standard，随后刷新权限缓存使变更生效。\n\n## 401 凭证过期\nToken 过期需要重新登录获取新凭证。\n",
+    "chunk_strategy": "markdown"
+  },
+  "response": {
+    "document": {
+      "document_id": "02919c68-37b0-415a-a21e-69625fc9f31d",
+      "title": "登录故障排查手册",
+      "source": "upload",
+      "source_ref": null,
+      "chunk_strategy": "markdown",
+      "chunk_count": 2,
+      "char_count": 147,
+      "collection_name": "kb_fake-embedding_64",
+      "created_at": "2026-08-07T12:34:32.060415Z"
+    },
+    "bm25_index_size": 2
+  }
+}

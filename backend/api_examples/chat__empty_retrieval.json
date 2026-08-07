@@ -1,0 +1,114 @@
+{
+  "endpoint": "chat",
+  "http_status": 200,
+  "request": {
+    "question": "403 应该怎么排查",
+    "user_id": "u-1001"
+  },
+  "response": {
+    "conversation_id": "76279dda-c4bb-48a5-9fd9-b9c199149340",
+    "message_id": 30,
+    "outcome": "insufficient_information",
+    "answer": "抱歉，根据现有的知识库内容和系统数据，我无法准确回答这个问题。\n\n缺少以下关键信息：\n- 路由判定现有知识与工具均无法覆盖该问题\n\n建议：补充更多信息或提交工单转人工",
+    "pending_write": null,
+    "trace": {
+      "trace_id": "87e0e41aaf0648e3af0b90291307e27a",
+      "total_elapsed_ms": 3,
+      "context": {
+        "total_turns": 0,
+        "windowed_turns": 0,
+        "summarized": false,
+        "summary_source_turns": 0,
+        "degrade_reason": null,
+        "summary": null
+      },
+      "retrieval": {
+        "query_rewrite": {
+          "original": "403 应该怎么排查",
+          "rewritten": "403 应该怎么排查",
+          "applied": false,
+          "keywords": [],
+          "skip_reason": "disabled"
+        },
+        "hybrid_enabled": true,
+        "rerank_applied": false,
+        "stages": [
+          {
+            "name": "query_rewrite",
+            "hit_count": 0,
+            "elapsed_ms": 0,
+            "top_chunk_ids": [],
+            "note": "disabled"
+          },
+          {
+            "name": "vector_search",
+            "hit_count": 0,
+            "elapsed_ms": 0,
+            "top_chunk_ids": [],
+            "note": null
+          },
+          {
+            "name": "bm25_search",
+            "hit_count": 0,
+            "elapsed_ms": 0,
+            "top_chunk_ids": [],
+            "note": "index_empty"
+          },
+          {
+            "name": "rrf_fusion",
+            "hit_count": 0,
+            "elapsed_ms": 0,
+            "top_chunk_ids": [],
+            "note": null
+          },
+          {
+            "name": "rerank",
+            "hit_count": 0,
+            "elapsed_ms": 0,
+            "top_chunk_ids": [],
+            "note": "no_candidates"
+          }
+        ],
+        "citations": []
+      },
+      "route_decisions": [
+        {
+          "round": 1,
+          "action": "insufficient",
+          "reasoning": "知识库当前没有任何可用片段",
+          "confidence": 0.2,
+          "tool_name": null,
+          "tool_arguments": {}
+        }
+      ],
+      "tool_calls": [],
+      "sufficiency": {
+        "sufficient": false,
+        "reasoning": "知识库当前没有任何可用片段",
+        "missing_information": [
+          "路由判定现有知识与工具均无法覆盖该问题"
+        ],
+        "suggested_next_step": "补充更多信息或提交工单转人工"
+      },
+      "steps": [
+        {
+          "step": 1,
+          "node": "route",
+          "detail": {
+            "round": 1,
+            "action": "insufficient",
+            "reasoning": "知识库当前没有任何可用片段",
+            "confidence": 0.2,
+            "tool_name": null
+          }
+        }
+      ],
+      "security": {
+        "input_flags": [],
+        "output_redactions": []
+      },
+      "agent_max_steps": 4
+    },
+    "created_at": "2026-08-07T12:34:32.474559Z"
+  }
+}

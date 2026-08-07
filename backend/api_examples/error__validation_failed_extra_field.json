@@ -1,0 +1,28 @@
+{
+  "endpoint": "error",
+  "http_status": 422,
+  "request": {
+    "question": "hi",
+    "user_id": "u-1001",
+    "rogue_field": 1
+  },
+  "response": {
+    "code": "VALIDATION_FAILED",
+    "message": "Request payload does not match the API contract",
+    "trace_id": "11f874d9be024f2ca9633c2b8b023c74",
+    "retryable": false,
+    "details": {
+      "violations": [
+        {
+          "type": "extra_forbidden",
+          "loc": [
+            "body",
+            "rogue_field"
+          ],
+          "msg": "Extra inputs are not permitted",
+          "input": 1
+        }
+      ]
+    }
+  }
+}

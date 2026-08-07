@@ -1,0 +1,24 @@
+{
+  "endpoint": "tool/audits",
+  "http_status": 422,
+  "request": null,
+  "response": {
+    "code": "VALIDATION_FAILED",
+    "message": "Request payload does not match the API contract",
+    "trace_id": "111df93c0bd84810ab3c689f8c7920e3",
+    "retryable": false,
+    "details": {
+      "violations": [
+        {
+          "type": "missing",
+          "loc": [
+            "query",
+            "user_id"
+          ],
+          "msg": "Field required",
+          "input": null
+        }
+      ]
+    }
+  }
+}
