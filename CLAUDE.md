@@ -33,9 +33,12 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 | `CHUNK_STRATEGY` | `markdown` |
 | `ENVIRONMENT` | `dev` |
 | Qdrant 集合名 | `kb_nomic-embed-text_768`（格式：`kb_<model>_<dim>`） |
+| `QWEN_JUDGE_MODEL` | `qwen-max`，RAGAS 评估裁判，固定走云端，与 `LLM_PROVIDER` 无关 |
+| `QWEN_SEDIMENTATION_MODEL` | `qwen-plus`，沉淀质量初筛，成本优先 |
 
-> 本仓库尚未初始化 git。做破坏性改动前建议先 `git init` 并提交一次基线，
-> 否则出错只能靠手动备份回退。
+> 本仓库已初始化 git（首次提交见 `d5cd9ad`）。`.gitignore` 已排除 `.env`、运行时数据库
+> （`data/app.db*`、`data/probe.db`）、Qdrant 存储、日志。改 `PendingSedimentation` 这类
+> 表结构前仍建议先备份 `backend/data/app.db*`，SQLite 的结构变更不受 git 保护。
 
 ## 常用命令
 
@@ -83,6 +86,25 @@ cd ../frontend && npm run dev        # 前端 :5173
 .venv/Scripts/python scripts/check_reranker.py             # 确认 Rerank 真的在重排
 .venv/Scripts/python scripts/diagnose_case.py q01          # 单条查询 Rerank 前后排名
 ```
+
+### 端到端生成质量评估（RAGAS 风格自研指标）
+
+```bash
+.venv/Scripts/python scripts/eval_ragas.py                        # --mode local，免费，裁判走云端
+.venv/Scripts/python scripts/eval_ragas.py --mode cloud           # 云端生成+裁判，会产生计费调用
+.venv/Scripts/python scripts/eval_ragas.py --mode both            # 本地/云端对比 cost/quality
+.venv/Scripts/python scripts/eval_ragas.py --limit 5 --save-json out.json  # 调试用，保存逐条明细
+```
+
+不装 `ragas` 库，复用 `app/llm/client.py` 自己实现：context_precision/recall 用
+`eval_set.json` 的 `expected_keywords` 关键词覆盖率算（不需要 LLM）；tool_correctness
+对比实际调用工具与 `expected_tool`（纯代码）；faithfulness + answer_relevancy 合并成
+一次结构化裁判调用，减半费用。裁判固定用 `QWEN_JUDGE_MODEL`（默认 `qwen-max`），
+不受 `LLM_PROVIDER` 影响——本地 7B 模型评自己生成的答案没有意义，裁判必须独立于被测链路。
+
+`data/eval_set.json` 已扩充 `gold_answer`/`expected_outcome`/`expected_tool` 三个字段。
+**局限**：这 30 条全是不含账号 ID 的知识性问题，按路由规则会走 `direct_answer`，
+`expected_tool` 恒为 `null`——`tool_correctness` 指标在本数据集上不能证明工具路由能力。
 
 ### 前端
 
@@ -149,6 +171,30 @@ Rerank 只用本地模型，因为检索质量的基准必须固定，调优前�
 （`connection reset` / `wsarecv` / `EOF` / `broken pipe`）。
 `tests/test_error_mapping.py` 里 19 个测试锁定这些边界。
 
+### 沉淀自动初筛
+
+`app/knowledge/sedimentation.py::SedimentationService._screen`，在 `mark()` 内同步触发，
+标记即初筛，不是等人工点开才评：
+
+1. **查重优先**：用现有 embedding 对 `question+answer` 算向量，搜已有知识库 Top-1，
+   相似度 ≥ `_DUPLICATE_SIMILARITY_THRESHOLD`（0.92，原始余弦相似度，不经过 Rerank）
+   即判重复，写 `duplicate_of_document_id`/`duplicate_score`，**不再打质量分**——
+   重复内容没有质量可言，直接留人工判断合并还是驳回。
+2. **非重复才打分**：用 `QWEN_SEDIMENTATION_MODEL` 结构化裁判完整度/可回答性/敏感信息，
+   含敏感信息时 `quality_score` 直接清零。分数 ≥ `_AUTO_APPROVE_QUALITY_THRESHOLD`（0.8）
+   且非敏感 → 自动 `approve()`，`reviewer` 固定传 `AUTO_QUALITY_REVIEWER`
+   （`"system:auto-quality"`），`entry.auto_approved=True`；否则留 `pending` 给人工看分审。
+3. **降级路径**：`_embed`/`_store`/`_quality_llm` 任一为 `None`（比如没配 `QWEN_API_KEY`）
+   或调用抛 `AppError`，都静默降级为纯人工审核，不阻塞 `mark()` 本身——评估服务不可用
+   不该让"标记"这个动作本身失败。
+
+留痕：`approve()`/`reject()` 都会写 `reviewed_by`；只有自动路径会把 `auto_approved` 置 `True`，
+人工审核路径 `reviewed_by` 是审核人 ID。`marked_by`（谁标记的原始对话）与 `reviewed_by`
+（谁批准的）语义不同，分开记录才能回答"这条内容是谁批的、为什么批"。
+
+测试见 `tests/test_sedimentation_screening.py`，覆盖高分自动通过、低分转人工、
+敏感信息强制人工、重复命中跳过打分、相似但不到阈值不误判、初筛服务不可用降级五条路径。
+
 ## 前端架构与状态约定
 
 状态全部集中在 `useChat`，页面组件只负责渲染。这几条约定是联调核心，改动前先读懂：
@@ -211,6 +257,18 @@ npx tsc --noEmit
 
 第 5 步经常能抓到连带问题：比如给 `/health` 的字段加上 `Optional` 后，
 `tsc` 立刻报出侧边栏没处理 null。
+
+### 数据库表结构变更（没有 Alembic）
+
+项目体量还没到需要迁移框架的程度，`init_db()` 只会 `CREATE TABLE IF NOT EXISTS`，
+不会给已存在的表加新列。给 `app/storage/models.py` 里的表加字段时：
+
+- **全新环境**（`data/app.db` 不存在）：什么都不用做，`init_db()` 建表时字段就是全的。
+- **已有数据要保留**：**先备份** `backend/data/app.db`（连同同目录的 `-wal`/`-shm`，
+  如果存在），再跑一次性迁移脚本（如 `scripts/migrate_sedimentation.py`）用
+  `ALTER TABLE ADD COLUMN` 就地加列，可重复执行、已存在的列会跳过。
+- 图省事也可以直接删库重建（删 `data/app.db*` 后 `init_db()` 重新建表），
+  但会丢光对话/工单/审计等本地数据，只适合真不在乎这些数据的场景。
 
 ## 测试与三层验证
 
