@@ -33,10 +33,81 @@ BGE 交叉编码器可能对"过期"这个词做了过度泛化的语义关联�
 
 ## 生成层：RAGAS 自研指标低分案例
 
-> 本节内容基于 `scripts/eval_ragas.py --mode local --save-json eval_ragas_local.json`
-> 的真实运行结果整理，运行时间: 2026-08-07。裁判模型固定为 `qwen-max`，生成模型为本地
-> Ollama `qwen2.5:7b`。
+本节基于 `scripts/eval_ragas.py --mode local --save-json eval_ragas_local.json` 的真实
+运行结果，运行于 2026-08-07。裁判模型固定为 `qwen-max`，生成模型为本地 Ollama
+`qwen2.5:7b`。全量 30 条聚合结果：
 
-<!-- 以下内容在评估脚本跑完后补充：从 eval_ragas_local.json 中挑选
-     faithfulness < 0.7 或 answer_relevancy < 0.7 的真实案例，逐条记录：
-     问题 → 检索片段 → 模型答案 → 裁判评分与理由 → 根因分析 -->
+| 指标 | 分数 |
+| --- | --- |
+| context_precision | 61.7% |
+| context_recall | 83.3% |
+| tool_correctness | 86.7% |
+| faithfulness | 0.717 |
+| answer_relevancy | 0.600 |
+
+### 真实缺陷：路由把无关知识问题错误路由成写操作确认（q04 / q14 / q27）
+
+三条完全不同主题的知识性问题——q04「SignatureVerificationError 报错」、
+q14「早上还好好的，现在一直让我重新登录」、q27「登不上去也不报错就是白屏」——
+本地 `qwen2.5:7b` 的路由决策**全部**选中了同一个写工具 `reset_permission_cache`
+（描述："刷新账号的权限缓存，使管理员刚做的提权立即生效"），触发写操作确认，
+而不是直接基于检索到的知识片段回答。三条的裁判评分都是 faithfulness=0、
+answer_relevancy=0——候选答案完全偏离主题。
+
+例如 q27，检索阶段其实拿到了正确片段（context_recall=1.00，"IdP 回调地址与
+redirect_uri 不一致"排在靠前位置），问题出在检索之后：路由决策没有采纳这些
+知识片段去直接回答，而是莫名其妙选择了一个跟白屏毫无关系的权限缓存刷新工具。
+
+**根因**：本地 7B 模型在路由决策这一步的指令遵循能力不足，`app/agent/router.py`
+的 system prompt 已经写明"知识片段已足够回答用户问题...应选 answer"，但模型在
+某些输入下仍会倾向选择"看起来像是在做什么操作"的写工具，可能是训练数据里
+客服场景与"执行操作"强关联导致的偏置。这是本地小模型的真实局限，不是本项目
+路由 prompt 设计的问题——`eval_ragas.py --mode cloud`（云端 `qwen-plus` 生成）
+可以验证换模型是否消除这个偏置，此对比尚未运行（会产生云端计费调用，见下方
+「后续待办」）。
+
+**影响**：这类误路由会让用户看到一个无关的"是否要修改系统数据"确认弹窗，
+体验上比"信息不足"更糟——用户可能误以为要背这个操作的锁。
+
+### 评估方法论的局限：eval_ragas.py 的 EVAL_USER_ID 会触发工具调用（q07 / q20 / q21）
+
+q07「欠费了服务什么时候恢复」等三条案例的 `expected_tool` 标注为 `null`
+（数据集设计上这些是纯知识性问题），但实际运行 `actual_tool=list_orders`，
+`tool_correct` 被判为 `False`。
+
+**根因**：`scripts/eval_ragas.py` 用固定的 `EVAL_USER_ID = "eval-user-no-account"`
+驱动 `ChatService`，而 `app/agent/router.py` 会把"当前提问用户的账号 ID"注入
+路由 prompt。模型据此认为这是"当前用户在问自己的账单状态"，合理地选择调用
+`list_orders` 查真实订单——这在生产场景（真实用户带着自己的账号提问）是**正确
+行为**，只是与本评估集"纯知识性问题，不应触发工具"的假设冲突。
+
+**这不是产品缺陷，是评估设计的已知局限**，已经写在
+`data/eval_set.json` 顶层 description 里。`eval_set.json` 里的 30 条案例都是
+从文档摘出来的通用问法，没有代入具体账号视角提问，与真实场景（用户带着自己账号
+问自己的问题）有差异。若要让 `tool_correctness` 真正覆盖工具路由能力，需要
+扩充一批"XX 账号欠费了，什么时候能用"这类带上下文的案例并标注对应
+`expected_tool=list_orders`——这个扩充尚未做，留在后续待办里。
+
+### 检索层的连带问题：q14 / q22 / q25 context_precision/recall 双零
+
+这三条查询检索阶段完全没召回相关片段（`context_precision=0`,
+`context_recall=0`），是生成层低分的上游原因，不是生成模型的独立缺陷：
+
+- q14「早上还好好的，现在一直让我重新登录」——纯口语化令牌过期描述，检索没能
+  召回`401 Unauthorized 凭证失效`那段
+- q22 —— 见上文「检索层：Rerank 负向案例」，Rerank 把命中片段挤出 Top-5
+- q25「浏览器缓存需要清吗」——检索到的片段与"清理浏览器缓存"这个细节步骤
+  语义关联太弱，召回宽度 20 条里都没有命中
+
+三条共同点：都是 `docs/eval_set.json` 里标注 `difficulty: hard` 的口语化/细节
+类查询，说明当前混合检索 + Rerank 的组合在这类查询上仍有明显的召回盲区，
+与 README 里"hard 子集仍有提升空间"的结论一致。
+
+## 后续待办（未在本轮完成，留给下一次迭代）
+
+- 跑 `--mode cloud` 验证 q04/q14/q27 的路由误判是否是本地 7B 模型特有的问题，
+  云端 `qwen-plus` 是否能正确路由到 `answer`（会产生云端计费调用，未运行）
+- 扩充 eval_set 补充一批带账号上下文的案例，让 `tool_correctness` 真正覆盖
+  工具路由能力，而不是恒定测知识性问题的路由正确率
+- q14/q22/q25 这类 hard 查询的检索盲区，可能需要扩充分块策略或调整 Rerank
+  阈值，需要更大样本才能判断是否系统性

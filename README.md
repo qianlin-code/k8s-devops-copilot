@@ -18,12 +18,20 @@
 | SSE 流式输出（打字机式进度推送） | `tests/contract/test_chat_stream_contract.py` + `scripts/sse_check.py` 真实联调 |
 | 跨用户访问隔离（404 而非 403） | `tests/test_user_isolation.py` |
 | SQLite 并发写优化 | `tests/test_db_concurrency.py`、`tests/test_write_lock_duration.py` |
-| 半自动知识沉淀（人工审核后入库） | `backend/app/knowledge/sedimentation.py` |
+| 沉淀自动质量初筛（去重 + 云端小模型打分，高分自动入库） | `tests/test_sedimentation_screening.py`，见下文 |
+| 端到端生成质量评估（自研 RAGAS 风格指标） | `scripts/eval_ragas.py`，见下文 |
 
-全部 115 个测试通过（`pytest tests/ -q`，2026-08-07 实测）。
+全部 121 个测试通过（`pytest tests/ -q`，2026-08-07 实测）。
 
-尚未实现（见文末「技术演进路线」）：端到端生成质量评估（RAGAS 类指标）、沉淀自动质量初筛与去重、
-多租户/JWT、独立部署的 Qdrant、LLM 网关限流熔断。当前检索评估只覆盖召回阶段，还没有验证「Agent 生成的答案是否忠实、是否切题」。
+`scripts/eval_ragas.py --mode local`（本地 Ollama qwen2.5:7b 生成，裁判固定用云端
+`qwen-max`）在 30 条标注查询上的真实结果：context_precision 61.7%、context_recall
+83.3%、faithfulness 0.717、answer_relevancy 0.600。这组分数不是用来展示"效果好"，
+而是发现了一个真实缺陷——本地模型在部分知识性问题上会把路由决策错误导向一个无关的
+写操作确认，完整的案例分析、根因排查见 [`docs/eval_bad_cases.md`](docs/eval_bad_cases.md)。
+
+尚未实现（见文末「技术演进路线」）：多租户/JWT、独立部署的 Qdrant、LLM 网关限流熔断。
+另外 `tool_correctness` 指标目前只覆盖知识性问题的路由正确率，还没有验证真正的
+工具调用路由能力，见 bad case 文档「评估方法论的局限」一节。
 
 ## 数据流
 
@@ -461,6 +469,7 @@ frontend/
 - **多租户与鉴权** — 引入用户 / 角色 / 权限模型，落地 JWT，支持多知识库隔离
 - **知识库版本管理** — 文档更新支持版本回溯，向量集合灰度切换
 - **LLM 网关层** — 统一限流、熔断、降级、多模型负载均衡与故障切流
-- **端到端生成质量评估** — 自研 RAGAS 风格指标（context precision/recall、faithfulness、answer relevancy、
-  tool correctness），裁判模型固定用云端强模型；当前只有检索阶段的 Hit@K/MRR，没有验证生成结果本身
-- **沉淀质量控制** — 相似度去重、云端小模型质量初筛、多级审校（当前为人工单级审核）
+- **沉淀多级审校** — 当前自动初筛只有一级（去重+质量分），生产级方案还需人工复审自动通过的条目
+- **RAGAS 评估集扩充** — 现有 30 条评估集不含账号上下文，`tool_correctness` 还不能验证真正的
+  工具路由能力；`eval_bad_cases.md` 已记录一个本地模型路由误判知识问题为写操作确认的真实缺陷，
+  待验证云端模型（`--mode cloud`）是否能修复
