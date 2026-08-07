@@ -43,6 +43,11 @@ class Settings(BaseSettings):
     qwen_base_url: str = "https://dashscope.aliyuncs.com/compatible-mode/v1"
     qwen_api_key: str = ""
     qwen_chat_model: str = "qwen-plus"
+    # RAGAS 风格评估的裁判模型：固定用云端强模型，不受 LLM_PROVIDER 影响。
+    # 本地 7B 模型自评自己生成的答案，噪声大且不可信，裁判必须独立于被测链路。
+    qwen_judge_model: str = "qwen-max"
+    # 沉淀质量初筛：成本优先，用于去重+质量打分，不追求裁判级准确度。
+    qwen_sedimentation_model: str = "qwen-plus"
 
     embedding_provider: Provider = Provider.QWEN
     ollama_embedding_model: str = "bge-m3"

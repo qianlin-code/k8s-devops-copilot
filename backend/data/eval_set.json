@@ -1,89 +1,125 @@
 {
-  "description": "检索评估标注集。expected_keywords 命中任一即认为该片段相关。difficulty 用于分层看指标: easy=含文档术语可被 BM25 直接命中; hard=纯口语化或易混淆, 需要语义理解与重排。",
+  "description": "检索与生成质量评估标注集。expected_keywords 命中任一即认为该片段相关，供检索层 Hit@K/MRR 使用。difficulty 用于分层看指标: easy=含文档术语可被 BM25 直接命中; hard=纯口语化或易混淆, 需要语义理解与重排。gold_answer/expected_outcome/expected_tool 供 scripts/eval_ragas.py 端到端评估使用: gold_answer 是人工撰写的参考答案，用于 context_recall/faithfulness/answer_relevancy; expected_outcome 对应 ChatResponse.outcome 枚举; expected_tool 是期望路由选中的工具名，全部为 null 是本数据集的设计选择——这 30 条都是不含具体账号 ID 的纯知识性问题，按 app/agent/router.py 的路由规则，缺少账号 ID 时会走 direct_answer 分支而非 call_tool，因此 tool_correctness 指标在本数据集上恒为满分，不能证明工具路由能力，只反映知识性问答的路由正确率。",
   "cases": [
     {
       "id": "q01",
       "query": "登录提示 403 是什么原因",
       "expected_keywords": ["permission_level", "restricted"],
       "difficulty": "easy",
-      "note": "标准语义查询"
+      "note": "标准语义查询",
+      "gold_answer": "账号 permission_level 为 restricted，未被授予该应用的访问权限，需管理员在后台提权到 standard 并刷新权限缓存（最长 15 分钟生效）。",
+      "expected_outcome": "direct_answer",
+      "expected_tool": null
     },
     {
       "id": "q02",
       "query": "permission_level restricted 怎么处理",
       "expected_keywords": ["permission_level", "standard"],
       "difficulty": "easy",
-      "note": "专有字段名，考察 BM25 精确匹配"
+      "note": "专有字段名，考察 BM25 精确匹配",
+      "gold_answer": "联系空间管理员在后台将 permission_level 提权到 standard，提权后需刷新权限缓存，变更最长 15 分钟生效。",
+      "expected_outcome": "direct_answer",
+      "expected_tool": null
     },
     {
       "id": "q03",
       "query": "账号被锁了要等多久",
       "expected_keywords": ["locked", "30 分钟", "风控"],
       "difficulty": "easy",
-      "note": "口语化描述"
+      "note": "口语化描述",
+      "gold_answer": "连续 5 次密码错误触发风控锁定，锁定 30 分钟后自动解锁，或由管理员手动解锁。",
+      "expected_outcome": "direct_answer",
+      "expected_tool": null
     },
     {
       "id": "q04",
       "query": "SignatureVerificationError 报错",
       "expected_keywords": ["SignatureVerificationError", "SAML", "证书"],
       "difficulty": "easy",
-      "note": "错误类名，纯向量检索容易失手"
+      "note": "错误类名，纯向量检索容易失手",
+      "gold_answer": "IdP 侧轮换了签名证书但应用侧元数据未同步，需从 IdP 重新下载最新 metadata XML 并在管理后台更新，配置 5 分钟内热加载生效，无需重启服务。",
+      "expected_outcome": "direct_answer",
+      "expected_tool": null
     },
     {
       "id": "q05",
       "query": "504 Gateway Timeout 内网打不开",
       "expected_keywords": ["504", "防火墙", "443"],
       "difficulty": "easy",
-      "note": "错误码 + 场景"
+      "note": "错误码 + 场景",
+      "gold_answer": "企业防火墙拦截了应用所需的出站端口，需确认防火墙已放行 443 端口到应用域名，或将应用域名加入正向代理白名单。",
+      "expected_outcome": "direct_answer",
+      "expected_tool": null
     },
     {
       "id": "q06",
       "query": "suspended 状态能刷新权限缓存吗",
       "expected_keywords": ["suspended", "无法执行权限缓存刷新"],
       "difficulty": "easy",
-      "note": "考察是否命中约束条款"
+      "note": "考察是否命中约束条款",
+      "gold_answer": "不能。suspended 状态的账号无法执行权限缓存刷新操作，需先解决欠费问题使账号恢复正常状态。",
+      "expected_outcome": "direct_answer",
+      "expected_tool": null
     },
     {
       "id": "q07",
       "query": "欠费了服务什么时候恢复",
       "expected_keywords": ["overdue", "1 小时内自动恢复"],
       "difficulty": "easy",
-      "note": "业务时效问题"
+      "note": "业务时效问题",
+      "gold_answer": "订阅账期逾期未付款会导致服务暂停（suspended），付款到账后服务在 1 小时内自动恢复，不需要人工干预。",
+      "expected_outcome": "direct_answer",
+      "expected_tool": null
     },
     {
       "id": "q08",
       "query": "redirect_uri 不一致导致白屏",
       "expected_keywords": ["redirect_uri", "CORS"],
       "difficulty": "easy",
-      "note": "技术参数名"
+      "note": "技术参数名",
+      "gold_answer": "IdP 回调地址与应用配置的 redirect_uri 不一致，或回调域名未加入 CORS 白名单，导致跳转后白屏。需核对回调地址逐字符一致并将域名加入白名单。",
+      "expected_outcome": "direct_answer",
+      "expected_tool": null
     },
     {
       "id": "q09",
       "query": "token 多久过期",
       "expected_keywords": ["8 小时", "令牌"],
       "difficulty": "easy",
-      "note": "缩写词查询"
+      "note": "缩写词查询",
+      "gold_answer": "访问令牌（access token）默认有效期为 8 小时，过期后所有请求返回 401，需重新登录获取新令牌。",
+      "expected_outcome": "direct_answer",
+      "expected_tool": null
     },
     {
       "id": "q10",
       "query": "VPN 老是掉线怎么办",
       "expected_keywords": ["VPN", "IP 绑定"],
       "difficulty": "easy",
-      "note": "口语化 + 缩写"
+      "note": "口语化 + 缩写",
+      "gold_answer": "VPN 出口 IP 频繁变化触发了应用的会话 IP 绑定校验导致掉线，可关闭该 VPN 出口网段的 IP 绑定校验，或让用户改用固定出口的 VPN 节点。",
+      "expected_outcome": "direct_answer",
+      "expected_tool": null
     },
     {
       "id": "q11",
       "query": "提权之后多久生效",
       "expected_keywords": ["刷新权限缓存", "15 分钟"],
       "difficulty": "hard",
-      "note": "需要命中缓存相关段落"
+      "note": "需要命中缓存相关段落",
+      "gold_answer": "提权后必须刷新权限缓存，否则变更最长 15 分钟后才生效。",
+      "expected_outcome": "direct_answer",
+      "expected_tool": null
     },
     {
       "id": "q12",
       "query": "401 和 403 有什么区别",
       "expected_keywords": ["401", "403"],
       "difficulty": "easy",
-      "note": "对比类问题，跨小节"
+      "note": "对比类问题，跨小节",
+      "gold_answer": "401 是访问令牌过期或单点登出导致的凭证失效，需重新登录；403 是账号 permission_level 为 restricted 导致的权限不足，需管理员提权，两者是完全不同的两类问题。",
+      "expected_outcome": "direct_answer",
+      "expected_tool": null
     },
 
     {
@@ -91,126 +127,180 @@
       "query": "同事都能进就我进不去，说我没有权限",
       "expected_keywords": ["permission_level", "restricted"],
       "difficulty": "hard",
-      "note": "纯口语化，不含任何错误码或字段名，只能靠语义"
+      "note": "纯口语化，不含任何错误码或字段名，只能靠语义",
+      "gold_answer": "账号 permission_level 为 restricted 导致 403 权限不足，需联系空间管理员在后台提权到 standard，并刷新权限缓存使变更生效。",
+      "expected_outcome": "direct_answer",
+      "expected_tool": null
     },
     {
       "id": "q14",
       "query": "早上还好好的，现在一直让我重新登录",
       "expected_keywords": ["令牌", "8 小时", "401"],
       "difficulty": "hard",
-      "note": "口语化描述令牌过期，易与账号锁定混淆"
+      "note": "口语化描述令牌过期，易与账号锁定混淆",
+      "gold_answer": "访问令牌默认 8 小时过期，过期后所有请求返回 401，需重新登录获取新令牌。",
+      "expected_outcome": "direct_answer",
+      "expected_tool": null
     },
     {
       "id": "q15",
       "query": "密码输错太多次被系统挡住了",
       "expected_keywords": ["locked", "风控", "30 分钟"],
       "difficulty": "hard",
-      "note": "口语化，须区别于 403 权限不足"
+      "note": "口语化，须区别于 403 权限不足",
+      "gold_answer": "连续 5 次密码错误触发风控自动锁定，锁定 30 分钟后自动解锁，或联系管理员手动解锁。",
+      "expected_outcome": "direct_answer",
+      "expected_tool": null
     },
     {
       "id": "q16",
       "query": "在家用手机能登，到公司电脑就转圈打不开",
       "expected_keywords": ["504", "防火墙", "443"],
       "difficulty": "hard",
-      "note": "口语化描述内网超时，干扰项是 VPN 掉线"
+      "note": "口语化描述内网超时，干扰项是 VPN 掉线",
+      "gold_answer": "企业防火墙拦截了出站端口导致内网访问 504 超时，需确认防火墙已放行 443 端口，用 curl -v 抓取握手过程定位阻断环节。",
+      "expected_outcome": "direct_answer",
+      "expected_tool": null
     },
     {
       "id": "q17",
       "query": "点了企业微信登录之后就一片空白",
       "expected_keywords": ["redirect_uri", "CORS", "白屏"],
       "difficulty": "hard",
-      "note": "口语化描述 SSO 白屏"
+      "note": "口语化描述 SSO 白屏",
+      "gold_answer": "IdP 回调地址与应用 redirect_uri 不一致或回调域名未加入 CORS 白名单，需核对回调地址逐字符一致并将域名加入网关 CORS 白名单，再清理浏览器缓存重试。",
+      "expected_outcome": "direct_answer",
+      "expected_tool": null
     },
     {
       "id": "q18",
       "query": "管理员给我加了权限但还是进不去",
       "expected_keywords": ["刷新权限缓存", "15 分钟"],
       "difficulty": "hard",
-      "note": "多跳: 需理解已提权但缓存未刷新，而非权限本身不足"
+      "note": "多跳: 需理解已提权但缓存未刷新，而非权限本身不足",
+      "gold_answer": "提权后必须刷新权限缓存，否则变更最长 15 分钟后才生效，不是权限本身没提上去。",
+      "expected_outcome": "direct_answer",
+      "expected_tool": null
     },
     {
       "id": "q19",
       "query": "改完 SAML 配置需要重启服务吗",
       "expected_keywords": ["无需重启", "热加载", "5 分钟"],
       "difficulty": "hard",
-      "note": "考察是否命中运维约束细节"
+      "note": "考察是否命中运维约束细节",
+      "gold_answer": "无需重启服务，SAML 元数据配置更新后在 5 分钟内热加载生效。",
+      "expected_outcome": "direct_answer",
+      "expected_tool": null
     },
     {
       "id": "q20",
       "query": "付了钱多久能用",
       "expected_keywords": ["overdue", "1 小时内自动恢复"],
       "difficulty": "hard",
-      "note": "极简口语，无任何术语"
+      "note": "极简口语，无任何术语",
+      "gold_answer": "账期逾期导致服务暂停，付款到账后服务在 1 小时内自动恢复，不需要人工干预。",
+      "expected_outcome": "direct_answer",
+      "expected_tool": null
     },
     {
       "id": "q21",
       "query": "所有功能都用不了，提示服务已暂停",
       "expected_keywords": ["suspended", "逾期", "暂停"],
       "difficulty": "hard",
-      "note": "现象描述，须区别于账号锁定与权限不足"
+      "note": "现象描述，须区别于账号锁定与权限不足",
+      "gold_answer": "订阅账期逾期未付款，系统自动暂停服务（suspended），付款到账后 1 小时内自动恢复。",
+      "expected_outcome": "direct_answer",
+      "expected_tool": null
     },
     {
       "id": "q22",
       "query": "登录证书过期了怎么更新",
       "expected_keywords": ["metadata", "SAML", "元数据"],
       "difficulty": "hard",
-      "note": "用户用词与文档不一致(证书 vs 元数据/签名证书)"
+      "note": "用户用词与文档不一致(证书 vs 元数据/签名证书)",
+      "gold_answer": "从 IdP 重新下载最新的 metadata XML，在管理后台更新 SAML 元数据，无需重启服务，5 分钟内热加载生效。",
+      "expected_outcome": "direct_answer",
+      "expected_tool": null
     },
     {
       "id": "q23",
       "query": "换成固定 IP 的节点能解决掉线吗",
       "expected_keywords": ["VPN", "IP 绑定", "固定出口"],
       "difficulty": "hard",
-      "note": "针对处理步骤而非现象提问"
+      "note": "针对处理步骤而非现象提问",
+      "gold_answer": "可以。VPN 出口 IP 频繁变化触发会话 IP 绑定校验才是掉线原因，换用固定出口的 VPN 节点或关闭该网段的 IP 绑定校验能解决。",
+      "expected_outcome": "direct_answer",
+      "expected_tool": null
     },
     {
       "id": "q24",
       "query": "怎么用命令行定位到底哪一层被拦了",
       "expected_keywords": ["curl", "握手", "阻断"],
       "difficulty": "hard",
-      "note": "指向具体排查手段，只在处理步骤中出现"
+      "note": "指向具体排查手段，只在处理步骤中出现",
+      "gold_answer": "用 curl -v 抓取握手过程，逐层查看在哪个环节被阻断，用于定位内网 504 超时是防火墙还是代理拦截。",
+      "expected_outcome": "direct_answer",
+      "expected_tool": null
     },
     {
       "id": "q25",
       "query": "浏览器缓存需要清吗",
       "expected_keywords": ["清理浏览器缓存", "CORS", "白屏"],
       "difficulty": "hard",
-      "note": "细节步骤查询，语义信号弱"
+      "note": "细节步骤查询，语义信号弱",
+      "gold_answer": "需要。核对完 IdP 回调地址与 CORS 白名单后，清理浏览器缓存再重试登录，是白屏排查步骤的最后一步。",
+      "expected_outcome": "direct_answer",
+      "expected_tool": null
     },
     {
       "id": "q26",
       "query": "restricted 和 standard 有什么差别",
       "expected_keywords": ["permission_level", "standard", "restricted"],
       "difficulty": "easy",
-      "note": "术语对比"
+      "note": "术语对比",
+      "gold_answer": "restricted 是权限不足会导致登录 403 的等级，standard 是正常访问所需的等级，管理员提权即是从 restricted 改为 standard。",
+      "expected_outcome": "direct_answer",
+      "expected_tool": null
     },
     {
       "id": "q27",
       "query": "登不上去也不报错就是白屏",
       "expected_keywords": ["白屏", "CORS", "redirect_uri"],
       "difficulty": "hard",
-      "note": "模糊现象，与多个故障都有弱关联"
+      "note": "模糊现象，与多个故障都有弱关联",
+      "gold_answer": "若为企业微信登录跳转后白屏且控制台报 CORS 错误，通常是 IdP 回调地址与 redirect_uri 不一致或回调域名未加入 CORS 白名单。",
+      "expected_outcome": "direct_answer",
+      "expected_tool": null
     },
     {
       "id": "q28",
       "query": "断言签名无效是什么意思",
       "expected_keywords": ["SignatureVerificationError", "证书", "SAML"],
       "difficulty": "easy",
-      "note": "文档原词"
+      "note": "文档原词",
+      "gold_answer": "断言签名无效（SignatureVerificationError）是因为 IdP 侧轮换了签名证书但应用侧元数据未同步更新，需重新下载 metadata XML 并更新。",
+      "expected_outcome": "direct_answer",
+      "expected_tool": null
     },
     {
       "id": "q29",
       "query": "为什么手机流量可以电脑不行",
       "expected_keywords": ["防火墙", "504", "代理"],
       "difficulty": "hard",
-      "note": "对比现象，须定位到网络而非账号问题"
+      "note": "对比现象，须定位到网络而非账号问题",
+      "gold_answer": "企业防火墙拦截了电脑所在内网的出站端口，手机走移动网络不受影响；需确认防火墙已放行 443 端口，或将域名加入代理白名单。",
+      "expected_outcome": "direct_answer",
+      "expected_tool": null
     },
     {
       "id": "q30",
       "query": "提权要找谁操作",
       "expected_keywords": ["空间管理员", "后台提权", "standard"],
       "difficulty": "hard",
-      "note": "指向处理步骤中的责任人"
+      "note": "指向处理步骤中的责任人",
+      "gold_answer": "找空间管理员，在后台提权操作把账号 permission_level 从 restricted 改为 standard。",
+      "expected_outcome": "direct_answer",
+      "expected_tool": null
     }
   ]
 }
