@@ -6,6 +6,25 @@
 核心特点是**整条链路可回溯**：每次请求的响应里都带完整执行 trace（检索每一阶段、路由决策与理由、
 工具入参出参、充分性校验结论），前端直接渲染，不需要翻后台日志。
 
+## 当前状态
+
+已实现并有测试覆盖：
+
+| 能力 | 验证方式 |
+| --- | --- |
+| 混合检索（向量+BM25+RRF）+ BGE Rerank | `scripts/eval_retrieval.py` 实测对比，见下文 |
+| Agent 路由 / 工具调用 / 反幻觉充分性校验 | `tests/contract/`、`api_examples/` 24 个真实响应样例 |
+| 写操作确认 + 幂等 + 全量审计 | `tests/test_user_isolation.py` 等 |
+| SSE 流式输出（打字机式进度推送） | `tests/contract/test_chat_stream_contract.py` + `scripts/sse_check.py` 真实联调 |
+| 跨用户访问隔离（404 而非 403） | `tests/test_user_isolation.py` |
+| SQLite 并发写优化 | `tests/test_db_concurrency.py`、`tests/test_write_lock_duration.py` |
+| 半自动知识沉淀（人工审核后入库） | `backend/app/knowledge/sedimentation.py` |
+
+全部 115 个测试通过（`pytest tests/ -q`，2026-08-07 实测）。
+
+尚未实现（见文末「技术演进路线」）：端到端生成质量评估（RAGAS 类指标）、沉淀自动质量初筛与去重、
+多租户/JWT、独立部署的 Qdrant、LLM 网关限流熔断。当前检索评估只覆盖召回阶段，还没有验证「Agent 生成的答案是否忠实、是否切题」。
+
 ## 数据流
 
 ```mermaid
@@ -138,6 +157,13 @@ Rerank 单独贡献 Hit@1 +20pp、hard 子集 Hit@3 +29.4pp，未命中从 4 条
 补充了 `均排名`（命中片段的平均位次）这个指标：Hit@K 只看是否落在集合内，
 对「往前提了几位」不敏感，而这恰是 Rerank 的主要作用。
 
+单条案例可复现（`scripts/diagnose_case.py q29`）：查询「为什么手机流量可以电脑不行」，
+混合检索把正确片段（内网防火墙拦截）排在第 8 位（跌出 Top-5），Rerank 后拉回第 1 位。
+
+Rerank 不是单向提升——同一脚本跑 `q22`（「登录证书过期了怎么更新」）会看到反例：
+混合检索本已排第 1，Rerank 反而把它压到第 8 位，被「订单逾期未付款」这类不相关片段挤到前面。
+这类真实的负向案例记录在 [`docs/eval_bad_cases.md`](docs/eval_bad_cases.md)。
+
 ### 工具调用的安全控制
 
 | 约束 | 落地方式 |
@@ -181,6 +207,10 @@ event: progress   {"phase":"retrieved","label":"检索到 5 条相关片段","el
 event: progress   {"phase":"agent_step","label":"正在判断该直接回答还是调用工具",...}
 event: done       {...与非流式 /chat 完全一致的 ChatResponse...}
 ```
+
+`scripts/sse_check.py` 对本地 Ollama（qwen2.5:7b，无 GPU 加速的检索冷启动场景）的一次真实联调结果：
+首个进度事件 0.62s 到达，总耗时 46.3s，最长单阶段等待 20.3s（发生在检索阶段）。
+非流式接口下用户会在这 46s 里干等，流式接口能在 1s 内看到「已收到」的反馈。
 
 三个实现要点：
 
@@ -431,6 +461,6 @@ frontend/
 - **多租户与鉴权** — 引入用户 / 角色 / 权限模型，落地 JWT，支持多知识库隔离
 - **知识库版本管理** — 文档更新支持版本回溯，向量集合灰度切换
 - **LLM 网关层** — 统一限流、熔断、降级、多模型负载均衡与故障切流
-- **全维度评估** — 接入 RAGAS，评估回答忠实度、相关性、信息量
-- **流式输出** — SSE 打字机效果，改善长回答体验
-- **沉淀质量控制** — 相似度去重、质量评分、多级审校（当前为人工单级审核）
+- **端到端生成质量评估** — 自研 RAGAS 风格指标（context precision/recall、faithfulness、answer relevancy、
+  tool correctness），裁判模型固定用云端强模型；当前只有检索阶段的 Hit@K/MRR，没有验证生成结果本身
+- **沉淀质量控制** — 相似度去重、云端小模型质量初筛、多级审校（当前为人工单级审核）

@@ -17,6 +17,7 @@ backend/data/qdrant_storage/
 backend/*.log
 backend/e2e_out.txt
 backend/_smoke.py
+backend/eval_ragas_*.json
 
 # Node
 node_modules/
