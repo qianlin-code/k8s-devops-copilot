@@ -24,14 +24,21 @@
 全部 121 个测试通过（`pytest tests/ -q`，2026-08-07 实测）。
 
 `scripts/eval_ragas.py --mode local`（本地 Ollama qwen2.5:7b 生成，裁判固定用云端
-`qwen-max`）在 30 条标注查询上的真实结果：context_precision 61.7%、context_recall
-83.3%、faithfulness 0.717、answer_relevancy 0.600。这组分数不是用来展示"效果好"，
-而是发现了一个真实缺陷——本地模型在部分知识性问题上会把路由决策错误导向一个无关的
-写操作确认，完整的案例分析、根因排查见 [`docs/eval_bad_cases.md`](docs/eval_bad_cases.md)。
+`qwen-max`）在最初 30 条知识性标注查询上的真实结果：context_precision 61.7%、
+context_recall 83.3%、faithfulness 0.717、answer_relevancy 0.600。这组分数不是用来
+展示"效果好"，而是发现了一个真实缺陷——本地模型在部分知识性问题上会把路由决策
+错误导向一个无关的写操作确认。用云端 `qwen-plus` 对照后发现**换模型不是银弹**：
+误触发工具确实少了，但换成了过度保守地拒绝回答（即使检索证据已经充分），
+两种失败模式的答案质量裁判评分一样低。完整的案例分析、根因排查（包括一处
+已修正的错误分析）见 [`docs/eval_bad_cases.md`](docs/eval_bad_cases.md)。
+
+`data/eval_set.json` 已扩充到 38 条，新增 8 条带账号视角的工具路由案例
+（q31-q38，覆盖只读查询/写操作确认/跨账号查询），用于把 `tool_correctness`
+拆分成 `knowledge_routing_accuracy`（该不该调工具时没误调）与
+`tool_routing_accuracy`（该调工具时调对了没）两个独立指标——这批新案例
+尚未跑过完整评估，只是设计完成。
 
 尚未实现（见文末「技术演进路线」）：多租户/JWT、独立部署的 Qdrant、LLM 网关限流熔断。
-另外 `tool_correctness` 指标目前只覆盖知识性问题的路由正确率，还没有验证真正的
-工具调用路由能力，见 bad case 文档「评估方法论的局限」一节。
 
 ## 数据流
 
@@ -470,6 +477,11 @@ frontend/
 - **知识库版本管理** — 文档更新支持版本回溯，向量集合灰度切换
 - **LLM 网关层** — 统一限流、熔断、降级、多模型负载均衡与故障切流
 - **沉淀多级审校** — 当前自动初筛只有一级（去重+质量分），生产级方案还需人工复审自动通过的条目
-- **RAGAS 评估集扩充** — 现有 30 条评估集不含账号上下文，`tool_correctness` 还不能验证真正的
-  工具路由能力；`eval_bad_cases.md` 已记录一个本地模型路由误判知识问题为写操作确认的真实缺陷，
-  待验证云端模型（`--mode cloud`）是否能修复
+- **min_rerank_score 分层阈值** — 当前全局固定 0.15，`eval_bad_cases.md` 发现这个阈值对
+  部分 hard 口语化查询偏严（命中片段排名靠前但分数不过线，被过滤后 context_precision/recall
+  归零），需要按查询难度或改写后置信度分层设置，而不是一刀切
+- **工具路由案例验证** — `eval_set.json` 已扩充 8 条带账号视角的案例（q31-q38），但尚未
+  实际跑过评估拿到 `tool_routing_accuracy` 的真实数字
+- **过度保守拒绝的检测** — 云端 `qwen-plus` 对照实验发现，模型有时会在检索证据充分的情况下
+  仍拒绝回答（而不是乱调工具），这类"证据够但装看不见"的失败目前和"真的答不出来"混在
+  同一个 `insufficient_information` 分支里，评估指标也没有区分，需要专门识别

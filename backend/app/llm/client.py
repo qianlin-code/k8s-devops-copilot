@@ -38,6 +38,11 @@ class LLMClient:
             timeout = get_settings().llm_timeout_seconds
         self.model = model
         self._client = OpenAI(base_url=base_url, api_key=api_key, timeout=timeout)
+        # 累计用量：给评估脚本这类需要估算云端调用成本的场景用，
+        # 不影响 chat()/structured() 的返回签名，其他调用点无需感知。
+        self.total_prompt_tokens = 0
+        self.total_completion_tokens = 0
+        self.total_calls = 0
 
     @_retry_policy
     def chat(
@@ -56,6 +61,10 @@ class LLMClient:
             )
         except Exception as exc:
             raise _wrap_openai_error(exc) from exc
+        if resp.usage is not None:
+            self.total_prompt_tokens += resp.usage.prompt_tokens
+            self.total_completion_tokens += resp.usage.completion_tokens
+        self.total_calls += 1
         return resp.choices[0].message.content or ""
 
     def structured(

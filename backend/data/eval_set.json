@@ -1,5 +1,5 @@
 {
-  "description": "检索与生成质量评估标注集。expected_keywords 命中任一即认为该片段相关，供检索层 Hit@K/MRR 使用。difficulty 用于分层看指标: easy=含文档术语可被 BM25 直接命中; hard=纯口语化或易混淆, 需要语义理解与重排。gold_answer/expected_outcome/expected_tool 供 scripts/eval_ragas.py 端到端评估使用: gold_answer 是人工撰写的参考答案，用于 context_recall/faithfulness/answer_relevancy; expected_outcome 对应 ChatResponse.outcome 枚举; expected_tool 是期望路由选中的工具名，全部为 null 是本数据集的设计选择——这 30 条都是不含具体账号 ID 的纯知识性问题，按 app/agent/router.py 的路由规则，缺少账号 ID 时会走 direct_answer 分支而非 call_tool，因此 tool_correctness 指标在本数据集上恒为满分，不能证明工具路由能力，只反映知识性问答的路由正确率。",
+  "description": "检索与生成质量评估标注集，共 38 条。expected_keywords 命中任一即认为该片段相关，供检索层 Hit@K/MRR 使用。difficulty 用于分层看指标: easy=含文档术语可被 BM25 直接命中; hard=纯口语化或易混淆, 需要语义理解与重排; tool=需要触发工具调用的场景(q31-q38)。gold_answer/expected_outcome/expected_tool 供 scripts/eval_ragas.py 端到端评估使用: gold_answer 是人工撰写的参考答案，用于 context_recall/faithfulness/answer_relevancy; expected_outcome 对应 ChatResponse.outcome 枚举; expected_tool 是期望路由选中的工具名。q01-q30 是不含账号 ID 的纯知识性问题，expected_tool 恒为 null，按 app/agent/router.py 的规则会走 direct_answer——这部分只反映『不该调工具时没误调』(knowledge_routing_accuracy)。q31-q38 补充带 user_id 字段的案例，代入真实账号视角触发工具调用(只读查询/写操作确认/跨账号查询)，用于验证『该调工具时调对了没』(tool_routing_accuracy)。两组指标含义不同，不要合并成一个数字看。user_id 字段仅供 q31-q38 使用，eval_ragas.py 读取该字段驱动 Agent，未设置时默认用不含账号视角的 EVAL_USER_ID。",
   "cases": [
     {
       "id": "q01",
@@ -301,6 +301,94 @@
       "gold_answer": "找空间管理员，在后台提权操作把账号 permission_level 从 restricted 改为 standard。",
       "expected_outcome": "direct_answer",
       "expected_tool": null
+    },
+    {
+      "id": "q31",
+      "query": "查一下我当前的权限等级和账号状态",
+      "user_id": "u-1001",
+      "expected_keywords": ["permission_level", "restricted"],
+      "difficulty": "tool",
+      "note": "工具路由案例(u-1001=active/restricted)：需查实时账号状态，知识库无法回答",
+      "gold_answer": "u-1001 账号状态为 active，权限等级为 restricted。",
+      "expected_outcome": "tool_assisted_answer",
+      "expected_tool": "get_account_status"
+    },
+    {
+      "id": "q32",
+      "query": "帮我看看我名下有哪些订单，有没有欠费的",
+      "user_id": "u-1003",
+      "expected_keywords": ["overdue", "订单"],
+      "difficulty": "tool",
+      "note": "工具路由案例(u-1003=suspended，有一笔 overdue 订单)：需查实时订单状态",
+      "gold_answer": "u-1003 名下有一笔状态为 overdue（逾期未付款）的订单，这也是账号被 suspended 的原因。",
+      "expected_outcome": "tool_assisted_answer",
+      "expected_tool": "list_orders"
+    },
+    {
+      "id": "q33",
+      "query": "我这边提交过工单吗，处理得怎么样了",
+      "user_id": "u-1001",
+      "expected_keywords": ["工单"],
+      "difficulty": "tool",
+      "note": "工具路由案例：查询已有工单列表及状态",
+      "gold_answer": "需要调用工单查询工具确认 u-1001 名下的工单列表及当前状态。",
+      "expected_outcome": "tool_assisted_answer",
+      "expected_tool": "list_tickets"
+    },
+    {
+      "id": "q34",
+      "query": "管理员刚把我提权了，麻烦帮我刷新一下权限缓存",
+      "user_id": "u-1001",
+      "expected_keywords": ["刷新权限缓存", "15 分钟"],
+      "difficulty": "tool",
+      "note": "工具路由案例：写操作，应中断等待用户确认而非直接执行",
+      "gold_answer": "刷新权限缓存是写操作，需要先向用户确认，确认后才会真正执行使新权限生效。",
+      "expected_outcome": "write_confirmation_required",
+      "expected_tool": "reset_permission_cache"
+    },
+    {
+      "id": "q35",
+      "query": "这个问题知识库里没有答案，帮我提个工单转人工处理，标题写“SSO登录异常排查”",
+      "user_id": "u-1001",
+      "expected_keywords": ["工单"],
+      "difficulty": "tool",
+      "note": "工具路由案例：用户明确要求创建工单，属于写操作需确认",
+      "gold_answer": "创建工单是写操作，需要先向用户确认标题、描述与优先级，确认后才会真正创建。",
+      "expected_outcome": "write_confirmation_required",
+      "expected_tool": "create_ticket"
+    },
+    {
+      "id": "q36",
+      "query": "我这边一直是 locked 状态，是不是密码输错太多次了",
+      "user_id": "u-1002",
+      "expected_keywords": ["locked", "风控", "30 分钟"],
+      "difficulty": "tool",
+      "note": "工具路由案例(u-1002=locked)：需核实真实锁定原因而非直接猜测",
+      "gold_answer": "u-1002 账号状态为 locked，locked_reason 显示是连续 5 次密码错误触发风控锁定，需等待 30 分钟自动解锁或管理员手动解锁。",
+      "expected_outcome": "tool_assisted_answer",
+      "expected_tool": "get_account_status"
+    },
+    {
+      "id": "q37",
+      "query": "suspended 状态下能不能帮我刷新权限缓存",
+      "user_id": "u-1003",
+      "expected_keywords": ["suspended", "无法执行权限缓存刷新"],
+      "difficulty": "tool",
+      "note": "工具路由案例：应先查账号状态确认 suspended，再依据知识库结论说明不可执行，而非直接尝试写操作",
+      "gold_answer": "u-1003 当前状态为 suspended，按规则 suspended 状态的账号无法执行权限缓存刷新操作，需先解决欠费问题。",
+      "expected_outcome": "tool_assisted_answer",
+      "expected_tool": "get_account_status"
+    },
+    {
+      "id": "q38",
+      "query": "帮我查一下 u-1004 这个账号是不是管理员权限",
+      "user_id": "u-1001",
+      "expected_keywords": ["admin", "permission_level"],
+      "difficulty": "tool",
+      "note": "工具路由案例：提问者(u-1001)查询的是别人(u-1004)的账号，跨账号查询场景",
+      "gold_answer": "u-1004 账号的 permission_level 为 admin。",
+      "expected_outcome": "tool_assisted_answer",
+      "expected_tool": "get_account_status"
     }
   ]
 }

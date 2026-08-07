@@ -94,17 +94,33 @@ cd ../frontend && npm run dev        # 前端 :5173
 .venv/Scripts/python scripts/eval_ragas.py --mode cloud           # 云端生成+裁判，会产生计费调用
 .venv/Scripts/python scripts/eval_ragas.py --mode both            # 本地/云端对比 cost/quality
 .venv/Scripts/python scripts/eval_ragas.py --limit 5 --save-json out.json  # 调试用，保存逐条明细
+.venv/Scripts/python scripts/eval_ragas.py --case-ids q04,q14,q27 --mode both  # 只对照指定案例
 ```
 
 不装 `ragas` 库，复用 `app/llm/client.py` 自己实现：context_precision/recall 用
-`eval_set.json` 的 `expected_keywords` 关键词覆盖率算（不需要 LLM）；tool_correctness
-对比实际调用工具与 `expected_tool`（纯代码）；faithfulness + answer_relevancy 合并成
-一次结构化裁判调用，减半费用。裁判固定用 `QWEN_JUDGE_MODEL`（默认 `qwen-max`），
-不受 `LLM_PROVIDER` 影响——本地 7B 模型评自己生成的答案没有意义，裁判必须独立于被测链路。
+`eval_set.json` 的 `expected_keywords` 关键词覆盖率算（不需要 LLM）；faithfulness +
+answer_relevancy 合并成一次结构化裁判调用，减半费用。裁判固定用 `QWEN_JUDGE_MODEL`
+（默认 `qwen-max`），不受 `LLM_PROVIDER` 影响——本地 7B 模型评自己生成的答案没有意义，
+裁判必须独立于被测链路。
 
-`data/eval_set.json` 已扩充 `gold_answer`/`expected_outcome`/`expected_tool` 三个字段。
-**局限**：这 30 条全是不含账号 ID 的知识性问题，按路由规则会走 `direct_answer`，
-`expected_tool` 恒为 `null`——`tool_correctness` 指标在本数据集上不能证明工具路由能力。
+`tool_correctness` 拆成两个独立指标看：`knowledge_routing_accuracy`（知识性问题里
+没有误触发工具的比例，反映是否 over-action）和 `tool_routing_accuracy`（需要工具的
+问题里触发了正确工具的比例，反映是否该调不调）。两者含义不同，报告和 bad case
+分析里不要合并成一个数字——`eval_bad_cases.md` 里记录过一个真实案例：云端模型让
+`knowledge_routing_accuracy` 从 0% 涨到 66.7%，但只是把"误触发工具"换成了"过度
+保守拒绝回答"，答案质量（faithfulness/answer_relevancy）完全没变。
+
+跑 `--mode cloud`/`both` 前会打印本次累计的 prompt/completion token 数和一个粗略
+费用估算（`LLMClient` 现在会累计 `total_prompt_tokens`/`total_completion_tokens`，
+单价是脚本里硬编码的估计值，不代表 DashScope 实时计费，只用于避免误触大额调用；
+真实计费以百炼控制台为准）。
+
+`data/eval_set.json` 已扩充到 38 条：q01-q30 是不含账号 ID 的知识性问题（补了
+`gold_answer`/`expected_outcome`/`expected_tool` 三个字段，`expected_tool` 恒为
+`null`，只能反映 `knowledge_routing_accuracy`）；q31-q38 新增带 `user_id` 字段
+的工具路由案例（只读查询/写操作确认/跨账号查询），驱动 `eval_ragas.py` 代入真实
+账号视角触发工具，用于验证 `tool_routing_accuracy`——这批案例设计已完成，尚未
+实际跑过评估。
 
 ### 前端
 
@@ -119,7 +135,7 @@ npx vite build          # 构建
 
 `app/services/chat_service.py` 负责编排，`app/agent/state_machine.py` 是 Agent 核心。
 
-```
+```text
 输入防护 → 组装上下文 → 检索 → 路由决策 ─┬─ answer      → 充分性校验 → 生成回答
                                         ├─ call_tool   → 执行工具 → 充分性校验 → 回到路由
                                         └─ insufficient
