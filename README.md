@@ -20,8 +20,17 @@
 | SQLite 并发写优化 | `tests/test_db_concurrency.py`、`tests/test_write_lock_duration.py` |
 | 沉淀自动质量初筛（去重 + 云端小模型打分，高分自动入库） | `tests/test_sedimentation_screening.py`，见下文 |
 | 端到端生成质量评估（自研 RAGAS 风格指标） | `scripts/eval_ragas.py`，见下文 |
+| 前端 UI 冒烟（提问 → SSE 流式对话 → 收到回复） | `frontend/e2e/chat_smoke.spec.ts`（Playwright，需真实后端） |
 
-全部 121 个测试通过（`pytest tests/ -q`，2026-08-07 实测）。
+> **数据说明**：账号/订单/工单数据（`app/storage/seed.py`）与知识库文档
+> （`data/docs/`）都是为演示而构造的虚构数据，不含任何真实客户或业务信息。
+> 这是有意选择——项目定位是验证 RAG+Agent 架构本身（检索质量、路由决策、
+> 写操作安全控制），不依赖某个特定客户的真实数据集也能把这些能力跑通、
+> 跑出可复现的量化指标。接入真实业务数据时，只需替换 `data/docs/` 下的
+> 文档与 `MockAccount`/`MockOrder`/`Ticket` 对应的数据源（当前是 SQLite 表，
+> 生产场景通常换成调用企业内部系统的 API），Agent/检索/安全控制层不需要改。
+
+全部 122 个测试通过（`pytest tests/ -q`，2026-08-08 实测）。
 
 `scripts/eval_ragas.py --mode local`（本地 Ollama qwen2.5:7b 生成，裁判固定用云端
 `qwen-max`）在最初 30 条知识性标注查询上的真实结果：context_precision 61.7%、
@@ -413,6 +422,29 @@ QWEN_API_KEY=sk-xxx
 Embedding 换 provider 会因维度不同启用另一个 Qdrant 集合，需重新灌库。
 6G 显存机器建议 Embedding 走云端、本地只留 Rerank。
 
+### 换一个行业验证架构通用性
+
+检索/评估脚本不绑定客服领域——`data/docs_education/`（学生选课系统 FAQ，2 篇文档
+12 个 chunk）+ `data/eval_set_education.json`（8 条标注查询）是一个最小示例，
+证明只换知识库文档和评估集、不改一行代码就能跑通同一套检索链路：
+
+```bash
+.venv/Scripts/python scripts/eval_retrieval.py \
+  --docs-dir data/docs_education --eval-set data/eval_set_education.json
+```
+
+真实跑出来的结果（同样是纯向量 / 混合检索 / 混合+Rerank 三组对比）：
+
+| 配置 | Hit@1 | Hit@3 | Hit@5 | MRR |
+| --- | --- | --- | --- | --- |
+| A. 纯向量检索 | 37.5% | 62.5% | 75.0% | 0.504 |
+| B. 混合检索 | 50.0% | 75.0% | 100.0% | 0.681 |
+| C. 混合检索 + Rerank | **75.0%** | **100.0%** | **100.0%** | **0.875** |
+
+趋势与客服领域一致——Rerank 在口语化 hard 子集上的提升同样最明显（Hit@3 +40pp），
+说明这是检索链路本身的能力，不是针对客服场景调出来的。8 条案例规模刻意做小，
+只用于验证通用性，不是一份完整评估集。
+
 ## 常用命令
 
 ```bash
@@ -432,6 +464,8 @@ Embedding 换 provider 会因维度不同启用另一个 Qdrant 集合，需重�
 # 前端（frontend/ 目录下）
 npm run typecheck
 npm run build
+npx playwright install chromium   # 首次运行 e2e 前需要（下载浏览器二进制）
+npm run e2e                        # UI 冒烟测试，需要后端已启动且知识库已灌入文档
 ```
 
 ## Docker 一键启动
@@ -477,11 +511,15 @@ frontend/
 - **知识库版本管理** — 文档更新支持版本回溯，向量集合灰度切换
 - **LLM 网关层** — 统一限流、熔断、降级、多模型负载均衡与故障切流
 - **沉淀多级审校** — 当前自动初筛只有一级（去重+质量分），生产级方案还需人工复审自动通过的条目
-- **min_rerank_score 分层阈值** — 当前全局固定 0.15，`eval_bad_cases.md` 发现这个阈值对
-  部分 hard 口语化查询偏严（命中片段排名靠前但分数不过线，被过滤后 context_precision/recall
-  归零），需要按查询难度或改写后置信度分层设置，而不是一刀切
-- **工具路由案例验证** — `eval_set.json` 已扩充 8 条带账号视角的案例（q31-q38），但尚未
-  实际跑过评估拿到 `tool_routing_accuracy` 的真实数字
+- **min_rerank_score 分层阈值** — 全局固定阈值已从 0.15 调到 0.12（详见
+  `eval_bad_cases.md`「阈值敏感性分析」一节），但仍是全局一刀切；`eval_bad_cases.md`
+  记录的 q14 类查询要救回需要把阈值降到 0.05，代价（噪声候选翻倍）对全局不划算，
+  需要按查询难度或改写后置信度分层设置才能兼顾
+- **工具路由误判修复** — `eval_bad_cases.md`「真实缺陷」一节已定位到根因（`login_troubleshooting.md`
+  的"处理步骤" chunk 脱离上下文后被路由模型误判为操作指令），三个候选修复方向
+  （chunk 元数据标记 / 关联召回 / 路由 prompt 约束）已列出但未实施——样本量小
+  （2 个 chunk），改动面涉及分块/检索/路由多层，需要更多同类案例验证是普遍模式
+  而非过拟合单条 bad case 才动手
 - **过度保守拒绝的检测** — 云端 `qwen-plus` 对照实验发现，模型有时会在检索证据充分的情况下
   仍拒绝回答（而不是乱调工具），这类"证据够但装看不见"的失败目前和"真的答不出来"混在
   同一个 `insufficient_information` 分支里，评估指标也没有区分，需要专门识别

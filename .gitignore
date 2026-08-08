@@ -18,11 +18,18 @@ backend/*.log
 backend/e2e_out.txt
 backend/_smoke.py
 backend/eval_ragas_*.json
+backend/eval_tool_routing.json
 
 # Node
 node_modules/
 dist/
 .vite/
+frontend/tsconfig.tsbuildinfo
+
+# Playwright
+frontend/test-results/
+frontend/playwright-report/
+frontend/blob-report/
 
 # 编辑器 / 系统
 .vscode/

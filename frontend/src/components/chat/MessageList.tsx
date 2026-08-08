@@ -138,6 +138,13 @@ export function MessageList({
                 </span>
               )}
             </div>
+            {/* 本地模型首次真实调用会有冷启动开销（实测可达 100s+），
+                超过阈值才提示，避免正常响应时也显示这行造成误导 */}
+            {progress && progress.elapsedMs > 15_000 && (
+              <p className="thinking-warmup-hint">
+                模型可能正在首次加载中，请再等一下，后续对话会明显更快
+              </p>
+            )}
             {/* 已走过的阶段：让长等待有可见的推进感，也便于判断卡在哪一步 */}
             {progress && progress.history.length > 1 && (
               <ol className="thinking-steps">
