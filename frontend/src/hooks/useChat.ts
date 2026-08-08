@@ -1,7 +1,13 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 
 import { ApiError, RequestAbortedError, api } from '@/api/client'
-import type { ChatResponse, ProgressEvent } from '@/api/types'
+import type {
+  ChatResponse,
+  ExecutionTrace,
+  MessageItem,
+  PendingWriteActionSchema,
+  ProgressEvent,
+} from '@/api/types'
 import type { ChatTurn } from '@/components/chat/MessageList'
 
 // 用 UUID 而非模块级自增：后者在 HMR 重载后会从 0 重新计数，
@@ -139,6 +145,40 @@ export function useChat(userId: string) {
     abortRef.current?.abort()
   }, [])
 
+  /**
+   * 从历史记录恢复一个旧会话，之后 send/confirm 会自然带着这个 conversation_id 续聊。
+   * 只有「最后一条 assistant 消息」的 pending_write 会恢复成可点击的确认卡片——
+   * 更早的 pending_write 早已被后续消息取代（确认/拒绝后是新增消息而非覆盖旧消息），
+   * 重新展示会让用户对着一个其实已经处理完的操作再次点确认。
+   */
+  const hydrate = useCallback((id: string, messages: MessageItem[]) => {
+    turnSeq.current += 1
+    abortRef.current?.abort()
+    inFlight.current = false
+    const lastAssistantIdx = messages.reduce(
+      (acc, m, i) => (m.role === 'assistant' ? i : acc),
+      -1,
+    )
+    setTurns(
+      messages.map((m, i) => ({
+        id: nextId(),
+        role: m.role === 'user' ? 'user' : 'assistant',
+        content: m.content,
+        trace: (m.trace as unknown as ExecutionTrace) ?? null,
+        pendingWrite:
+          i === lastAssistantIdx
+            ? ((m.trace as { pending_write?: PendingWriteActionSchema } | null)
+                ?.pending_write ?? null)
+            : null,
+      })),
+    )
+    setConversationId(id)
+    setError(null)
+    setProgress(null)
+    setBusy(false)
+    setConfirmingToken(null)
+  }, [])
+
   const confirm = useCallback(
     async (token: string, approved: boolean) => {
       if (!conversationId || confirmingToken || inFlight.current) return
@@ -202,5 +242,6 @@ export function useChat(userId: string) {
     cancel,
     confirm,
     reset,
+    hydrate,
   }
 }

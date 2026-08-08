@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
+import { useNavigate } from 'react-router-dom'
 
 import { ApiError, api } from '@/api/client'
 import type {
@@ -11,6 +12,7 @@ import { TraceViewer } from '@/components/chat/TraceViewer'
 import './HistoryPage.css'
 
 export default function HistoryPage({ userId }: { userId: string }) {
+  const navigate = useNavigate()
   const [list, setList] = useState<ConversationListResponse | null>(null)
   const [detail, setDetail] = useState<ConversationDetailResponse | null>(null)
   const [audits, setAudits] = useState<ToolAuditListResponse | null>(null)
@@ -96,9 +98,17 @@ export default function HistoryPage({ userId }: { userId: string }) {
           <>
             <header className="detail-head">
               <h3>{detail.title ?? '(无标题)'}</h3>
-              <span className="dim">
-                {detail.user_id} · {new Date(detail.created_at).toLocaleString('zh-CN')}
-              </span>
+              <div className="detail-head-actions">
+                <span className="dim">
+                  {detail.user_id} · {new Date(detail.created_at).toLocaleString('zh-CN')}
+                </span>
+                <button
+                  className="primary"
+                  onClick={() => navigate(`/chat/${encodeURIComponent(detail.conversation_id)}`)}
+                >
+                  继续对话
+                </button>
+              </div>
             </header>
 
             {detail.summary && (

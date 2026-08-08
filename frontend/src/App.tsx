@@ -132,6 +132,7 @@ export default function App() {
         <Routes>
           <Route path="/" element={<Navigate to="/chat" replace />} />
           <Route path="/chat" element={<ChatPage userId={userId} />} />
+          <Route path="/chat/:conversationId" element={<ChatPage userId={userId} />} />
           <Route path="/knowledge" element={<KnowledgeBasePage userId={userId} />} />
           <Route path="/history" element={<HistoryPage userId={userId} />} />
           <Route path="*" element={<Navigate to="/chat" replace />} />

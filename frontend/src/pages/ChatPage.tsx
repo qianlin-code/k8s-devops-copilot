@@ -1,4 +1,5 @@
-import { useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
+import { useNavigate, useParams } from 'react-router-dom'
 
 import { ApiError, api } from '@/api/client'
 import { MessageList } from '@/components/chat/MessageList'
@@ -16,10 +17,30 @@ export default function ChatPage({ userId }: { userId: string }) {
     cancel,
     confirm,
     reset,
+    hydrate,
   } = useChat(userId)
   const [draft, setDraft] = useState('')
   const [marking, setMarking] = useState(false)
   const [notice, setNotice] = useState<string | null>(null)
+  const [loadError, setLoadError] = useState<string | null>(null)
+
+  const { conversationId: routeConversationId } = useParams<{ conversationId?: string }>()
+  const navigate = useNavigate()
+  // 记录已恢复过的会话 id，避免同一个会话在渲染期间被重复拉取
+  const hydratedRef = useRef<string | null>(null)
+
+  useEffect(() => {
+    if (!routeConversationId || routeConversationId === hydratedRef.current) return
+    hydratedRef.current = routeConversationId
+    setLoadError(null)
+    api
+      .getConversation(routeConversationId, userId, true)
+      .then(({ data }) => hydrate(data.conversation_id, data.messages))
+      .catch((err) => {
+        hydratedRef.current = null
+        setLoadError(err instanceof ApiError ? `会话加载失败：${err.message}（${err.code}）` : String(err))
+      })
+  }, [routeConversationId, userId, hydrate])
 
   const submit = () => {
     const text = draft.trim()
@@ -27,6 +48,12 @@ export default function ChatPage({ userId }: { userId: string }) {
     setDraft('')
     setNotice(null)
     void send(text)
+  }
+
+  const startNewConversation = () => {
+    reset()
+    hydratedRef.current = null
+    if (routeConversationId) navigate('/chat')
   }
 
   const markForSedimentation = async () => {
@@ -63,12 +90,13 @@ export default function ChatPage({ userId }: { userId: string }) {
           <button onClick={markForSedimentation} disabled={!hasAnswer || marking}>
             {marking ? '提交中…' : '标记为优质对话'}
           </button>
-          <button onClick={reset} disabled={turns.length === 0 || busy}>
+          <button onClick={startNewConversation} disabled={turns.length === 0 || busy}>
             新建会话
           </button>
         </div>
       </header>
 
+      {loadError && <div className="chat-notice err">{loadError}</div>}
       {notice && <div className="chat-notice">{notice}</div>}
 
       <MessageList
