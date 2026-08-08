@@ -364,6 +364,9 @@ chunk 后，「根因」那段既不含 "403" 也不含 "登录" —— Rerank �
 - [ ] readiness 探针用 `/readiness`（`/health` 在 prod 下不返回依赖状态）
 - [ ] 如需 Rerank，镜像构建时传 `--build-arg WITH_RERANK=true`
 - [ ] 确认 `/health` 的响应里没有 provider / 集合名
+- [x] mock 账号/订单不会被灌入生产库 —— `startup_checks.py::_check_database()` 已加
+  `ENVIRONMENT=prod` 判断跳过 `seed_mock_data()`，无需手动检查，仅记录于此避免
+  以后有人把这个跳过条件删掉
 
 ## 环境注意事项
 

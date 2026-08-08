@@ -94,3 +94,40 @@ def test_health_exposes_topology_in_dev(client: TestClient) -> None:
 def test_readiness_still_requires_api_key(client: TestClient) -> None:
     assert client.get("/api/v1/readiness").status_code == 401
     assert client.get("/api/v1/readiness", headers=API_HEADERS).status_code == 200
+
+
+def test_prod_startup_skips_mock_data_seeding(tmp_path, monkeypatch) -> None:
+    """生产环境启动不应把演示用的假账号/订单灌进真实数据库。
+
+    _check_database() 无条件跑 seed_mock_data() 曾是个真实漏洞：生产库若是
+    全新的，会插入 u-1004(admin 权限)这类演示数据。这里用一个全新的空库
+    （_isolate autouse fixture 已经在 dev 环境下 seed 过默认库，不能复用）
+    直接跑一次 _check_database()，断言 mock_accounts 表在 prod 下仍是空的。
+    """
+    from sqlalchemy import select
+
+    from app.config import get_settings
+    from app.rag import bm25_index, vector_store
+    from app.startup_checks import _check_database
+    from app.storage.db import reset_engine, session_scope
+    from app.storage.models import MockAccount
+
+    monkeypatch.setenv("DATABASE_URL", f"sqlite:///{(tmp_path / 'prod.db').as_posix()}")
+    monkeypatch.setenv("QDRANT_PATH", str(tmp_path / "qdrant"))
+    monkeypatch.setenv("ENVIRONMENT", "prod")
+    monkeypatch.setenv("API_KEY", _STRONG_KEY)
+    monkeypatch.setenv("CORS_ALLOW_ORIGINS", '["https://copilot.example.com"]')
+    get_settings.cache_clear()
+    reset_engine()
+    vector_store.reset_vector_store()
+    bm25_index.reset_bm25_index()
+    try:
+        detail = _check_database()
+        assert "skipped(prod)" in detail
+        with session_scope() as session:
+            assert session.scalar(select(MockAccount).limit(1)) is None
+    finally:
+        get_settings.cache_clear()
+        reset_engine()
+        vector_store.reset_vector_store()
+        bm25_index.reset_bm25_index()

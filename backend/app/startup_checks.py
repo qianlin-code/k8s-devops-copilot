@@ -4,7 +4,7 @@ from pathlib import Path
 
 from sqlalchemy import inspect, text
 
-from app.config import get_settings
+from app.config import Environment, get_settings
 from app.dependencies import get_ingestor
 from app.errors import StartupCheckError
 from app.llm.factory import get_embedding_client, get_llm_client
@@ -101,6 +101,11 @@ def _check_database() -> str:
     missing = _REQUIRED_TABLES - set(inspect(engine).get_table_names())
     if missing:
         raise RuntimeError(f"missing tables: {sorted(missing)}")
+    settings = get_settings()
+    # 演示用的假账号/订单只在非生产环境灌入。生产库若恰好是全新的，
+    # 无条件跑这一步会把 u-1004(admin 权限)这类演示数据插进真实数据库。
+    if settings.environment is Environment.PROD:
+        return f"tables={len(Base.metadata.tables)} seeded=skipped(prod)"
     with session_scope() as session:
         seeded = seed_mock_data(session)
     return f"tables={len(Base.metadata.tables)} seeded={seeded}"
