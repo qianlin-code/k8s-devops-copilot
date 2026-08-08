@@ -1,0 +1,85 @@
+{
+  "description": "教育行业最小示例评估集，证明检索/评估架构不绑定客服领域。搭配 data/docs_education/ 使用：python scripts/eval_retrieval.py --docs-dir data/docs_education --eval-set data/eval_set_education.json。字段含义与 data/eval_set.json 完全一致，规模缩小到 8 条只为验证架构通用性，不是完整评估集。",
+  "cases": [
+    {
+      "id": "e01",
+      "query": "选课的时候提示学分已满怎么办",
+      "expected_keywords": ["学分", "上限"],
+      "difficulty": "easy",
+      "note": "标准语义查询",
+      "gold_answer": "本学期已选学分超过年级上限，需退掉一门非必修课程后再选课，或联系教务处审批学分上限调整。",
+      "expected_outcome": "direct_answer",
+      "expected_tool": null
+    },
+    {
+      "id": "e02",
+      "query": "两门课时间对不上还能都选吗",
+      "expected_keywords": ["时间冲突", "退掉"],
+      "difficulty": "hard",
+      "note": "口语化描述时间冲突",
+      "gold_answer": "两门课上课时间重叠会被系统拦截，需要退掉其中一门，若都是必修课需联系教务处协调调班。",
+      "expected_outcome": "direct_answer",
+      "expected_tool": null
+    },
+    {
+      "id": "e03",
+      "query": "开学第一周抢课总是提交失败",
+      "expected_keywords": ["限流", "高峰期"],
+      "difficulty": "hard",
+      "note": "口语化描述并发限流场景",
+      "gold_answer": "开学高峰期并发量大触发限流保护，建议稍后重试或改用电话选课通道，高峰期通常 3-5 天后恢复。",
+      "expected_outcome": "direct_answer",
+      "expected_tool": null
+    },
+    {
+      "id": "e04",
+      "query": "退课截止日期过了还能退吗",
+      "expected_keywords": ["退课截止", "书面申请"],
+      "difficulty": "easy",
+      "note": "标准语义查询",
+      "gold_answer": "超过退课截止日期后系统入口关闭，需提交书面申请并经任课教师和教务处审批，由教务处人工代为退课。",
+      "expected_outcome": "direct_answer",
+      "expected_tool": null
+    },
+    {
+      "id": "e05",
+      "query": "考完试好久了怎么还查不到成绩",
+      "expected_keywords": ["录入", "截止日期"],
+      "difficulty": "hard",
+      "note": "口语化描述成绩录入延迟",
+      "gold_answer": "成绩录入有统一开放窗口，教师需在考试结束两周内录入并提交审核，审核通过前学生端不可见。",
+      "expected_outcome": "direct_answer",
+      "expected_tool": null
+    },
+    {
+      "id": "e06",
+      "query": "对某门课的成绩有异议想申请重新看一下",
+      "expected_keywords": ["复核申请", "教学秘书"],
+      "difficulty": "hard",
+      "note": "口语化描述成绩复核流程",
+      "gold_answer": "需在教务系统提交成绩复核申请，转交院系教学秘书登记，教师需在 5 个工作日内书面回复。",
+      "expected_outcome": "direct_answer",
+      "expected_tool": null
+    },
+    {
+      "id": "e07",
+      "query": "打印出来的成绩单少了一门课",
+      "expected_keywords": ["快照", "次日"],
+      "difficulty": "easy",
+      "note": "标准语义查询",
+      "gold_answer": "成绩单打印用的是每晚定时生成的静态快照，当天新增或修改的成绩要等次日快照才会同步。",
+      "expected_outcome": "direct_answer",
+      "expected_tool": null
+    },
+    {
+      "id": "e08",
+      "query": "辅修的课怎么才能出现在成绩单上",
+      "expected_keywords": ["辅修课程", "勾选"],
+      "difficulty": "hard",
+      "note": "口语化描述双学位场景",
+      "gold_answer": "打印页面需勾选包含辅修课程选项，若辅修专业未在系统关联，需先联系辅修院系教务秘书确认学籍关联。",
+      "expected_outcome": "direct_answer",
+      "expected_tool": null
+    }
+  ]
+}

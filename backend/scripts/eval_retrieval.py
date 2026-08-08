@@ -81,16 +81,25 @@ def _is_hit(text: str, keywords: list[str]) -> bool:
 def main() -> int:
     parser = argparse.ArgumentParser()
     parser.add_argument("--fake", action="store_true", help="用替身模型跑通流程")
+    parser.add_argument(
+        "--docs-dir", type=Path, default=DOCS_DIR,
+        help="知识库文档目录，默认 data/docs。切换行业时指向另一套文档即可，"
+        "不需要改代码——例如 data/docs_education 是教育行业的最小示例",
+    )
+    parser.add_argument(
+        "--eval-set", type=Path, default=EVAL_SET,
+        help="标注评估集路径，默认 data/eval_set.json，需与 --docs-dir 配套",
+    )
     args = parser.parse_args()
 
     workdir = _bootstrap_env(args.fake)
     try:
-        return _run(args.fake)
+        return _run(args.fake, args.docs_dir, args.eval_set)
     finally:
         shutil.rmtree(workdir, ignore_errors=True)
 
 
-def _run(fake: bool) -> int:
+def _run(fake: bool, docs_dir: Path, eval_set: Path) -> int:
     import time
 
     from app.knowledge.ingest import KnowledgeIngestor
@@ -111,10 +120,10 @@ def _run(fake: bool) -> int:
         embedding = get_embedding_client()
         real_reranker = get_reranker()
 
-    cases = json.loads(EVAL_SET.read_text(encoding="utf-8"))["cases"]
-    docs = sorted(DOCS_DIR.glob("*.md"))
+    cases = json.loads(eval_set.read_text(encoding="utf-8"))["cases"]
+    docs = sorted(docs_dir.glob("*.md"))
     if not docs:
-        print(f"no documents in {DOCS_DIR}", file=sys.stderr)
+        print(f"no documents in {docs_dir}", file=sys.stderr)
         return 1
 
     init_db()
