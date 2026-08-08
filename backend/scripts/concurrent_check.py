@@ -4,9 +4,17 @@
 用户还可能切到历史页。原实现在这种并发下会在 INSERT conversations 处撞锁。
 
 运行前需服务已启动: python scripts/concurrent_check.py
+环境变量: COPILOT_BASE（默认 http://127.0.0.1:8000）
+
+这是纯 HTTP 客户端脚本，本身不持有数据库连接——它会往目标服务的数据库里写入
+真实的会话/消息数据。反复跑会在 dev 库里堆积测试数据（与 e2e_check.py 同理）。
+若不想污染 data/app.db，启动一个指向独立 DATABASE_URL 的后端实例（例如
+`$env:DATABASE_URL="sqlite:///./data/test.db"; uvicorn app.main:app --port 8001`），
+再用 `$env:COPILOT_BASE="http://127.0.0.1:8001"` 指向它。
 """
 
 import json
+import os
 import sys
 import threading
 import time
@@ -17,8 +25,22 @@ import httpx
 ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(ROOT))
 
-BASE = "http://127.0.0.1:8000/api/v1"
-HEADERS = {"X-API-Key": "dev-local-api-key-change-me"}
+BASE = os.environ.get("COPILOT_BASE", "http://127.0.0.1:8000") + "/api/v1"
+
+
+def _api_key() -> str:
+    """与 e2e_check.py/sse_check.py 保持一致：优先读 .env，避免三份脚本
+    各自硬编码同一个默认密钥，改了 .env 却漏改脚本导致鉴权失败。
+    """
+    env = ROOT / ".env"
+    if env.exists():
+        for line in env.read_text(encoding="utf-8").splitlines():
+            if line.startswith("API_KEY="):
+                return line.split("=", 1)[1].strip()
+    return "dev-local-api-key-change-me"
+
+
+HEADERS = {"X-API-Key": _api_key()}
 USER = "u-1001"
 
 QUESTIONS = [

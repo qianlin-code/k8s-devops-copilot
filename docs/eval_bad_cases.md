@@ -100,6 +100,31 @@ redirect_uri 不一致"排在靠前位置），问题不是"没检索到"，而�
 3. 更简单的方向：在路由 prompt 里加一条规则，要求"call_tool 的触发依据必须来自
    检索片段中与用户问题主题一致的部分，不能仅因为片段提到了某个工具名"
 
+**方向 3 已实测（2026-08-08），结论是不采纳**：在 `Router._SYSTEM` 里加了一条
+规则，要求"操作步骤类片段必须同时匹配到现象/根因片段才能 call_tool"，用
+`eval_ragas.py --case-ids q04,q14,q27,q31,...,q38` 跑了改前/改后对照（本地
+qwen2.5:7b，同一批案例）：
+
+| 指标 | 改前 | 改后 |
+| --- | --- | --- |
+| knowledge_routing_accuracy | 33.3% | 66.7% |
+| tool_routing_accuracy | 100.0%（8/8） | 87.5%（7/8） |
+| faithfulness | 0.609 | 0.382 |
+
+`knowledge_routing_accuracy` 提升看起来像修好了，但逐条核对发现是假象：
+q04（这条规则真正要修的目标案例）改前改后**都**误路由到 `reset_permission_cache`
+——规则对目标案例完全没生效，提升的分数全部来自 q27 从误触发 `list_orders`
+变成正确判定 `insufficient_information`，是规则生效范围之外的意外收获。
+代价是 q37（`suspended` 状态询问能否刷新缓存，这条本来能正确调用
+`get_account_status`）被规则误伤，退化成 `insufficient_information` 没调用
+任何工具——模型变得过度谨慎，连带影响了原本正确的工具路由案例。
+
+这印证了当初"样本量小、改动会有连带副作用"的判断，而且是有实测证据支撑的：
+prompt 层加规则不是免费的精度提升，是拿一类错误换另一类错误，且对目标案例
+本身无效。方向 1/2 仍未实施，如果要继续推进，应该先验证方向 1（chunk 元数据
+标记）能不能在不引入新副作用的前提下修到 q04 本身，而不是继续在 prompt 层加
+规则。
+
 ### 云端模型对照：qwen-plus 没有真正修复，只是换了一种失败方式
 
 用 `scripts/eval_ragas.py --mode both --case-ids q04,q14,q27 --save-json eval_ragas_router_comparison.json`

@@ -8,6 +8,13 @@ import { expect, test } from '@playwright/test'
  * 前提：后端已在 8000 端口运行（真实 Ollama），知识库已灌入至少一篇文档
  * （scripts/seed_kb.py），且浏览器 localStorage 里的 API Key 与后端 .env
  * 一致。CI 环境下这三项都需要在跑测试前准备好。
+ *
+ * 数据说明：本测试通过真实前端发起对话，会在后端的 data/app.db 里留下一条
+ * 真实会话记录，与 scripts/e2e_check.py 同理——项目没有 DELETE /conversations
+ * 端点（越权删除他人会话的风险不值得为测试便利新开一个），所以无法自动清理。
+ * 若不想污染 dev 库，让后端指向独立的 DATABASE_URL（改 vite.config.ts 里的
+ * proxy target 指向那个实例），或接受会话记录留存——它们和真实用户数据
+ * 结构一致，不影响其他功能，只是会让「历史记录」页面多几条测试对话。
  */
 test('提问后能收到回答，进度指示器最终消失', async ({ page }) => {
   await page.goto('/')

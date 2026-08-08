@@ -2,16 +2,33 @@
 
 前提：uvicorn 已在 8000 端口运行，Ollama 可用。
 运行: python scripts/e2e_check.py
+环境变量: COPILOT_BASE（默认 http://localhost:8000）
+
+本脚本会清空并重新灌入目标服务的知识库、写入真实的会话/审计数据。反复跑会在
+data/app.db 里堆积测试会话。若不想污染 dev 库，指向一个独立 DATABASE_URL 启动
+的后端实例（见 scripts/concurrent_check.py 顶部说明），再设 COPILOT_BASE 指向它。
 """
 
 import json
+import os
 import sys
 from pathlib import Path
 from urllib import error, request
 
-BASE = "http://localhost:8000/api/v1"
-KEY = "dev-local-api-key-change-me"
 ROOT = Path(__file__).resolve().parent.parent
+BASE = os.environ.get("COPILOT_BASE", "http://localhost:8000") + "/api/v1"
+
+
+def _api_key() -> str:
+    env = ROOT / ".env"
+    if env.exists():
+        for line in env.read_text(encoding="utf-8").splitlines():
+            if line.startswith("API_KEY="):
+                return line.split("=", 1)[1].strip()
+    return "dev-local-api-key-change-me"
+
+
+KEY = _api_key()
 
 
 def call(method: str, path: str, payload: dict | None = None) -> tuple[int, dict]:

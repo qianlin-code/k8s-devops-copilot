@@ -1,11 +1,12 @@
-"""把 data/docs 下的示例文档灌入运行中的服务。
+"""把知识库文档灌入运行中的服务。
 
 比手写 curl/PowerShell 可靠：统一 UTF-8，避免 shell 的编码与对象包装问题。
 
-运行: python scripts/seed_kb.py
+运行: python scripts/seed_kb.py [--docs-dir data/docs_education]
 环境变量: COPILOT_BASE（默认 http://localhost:8000）
 """
 
+import argparse
 import os
 import sys
 from pathlib import Path
@@ -26,9 +27,17 @@ def _api_key() -> str:
 
 
 def main() -> int:
-    docs = sorted((ROOT / "data" / "docs").glob("*.md"))
+    parser = argparse.ArgumentParser()
+    parser.add_argument(
+        "--docs-dir", type=Path, default=ROOT / "data" / "docs",
+        help="知识库文档目录，默认 data/docs。切换行业示例时指向另一套文档，"
+        "例如 data/docs_education",
+    )
+    args = parser.parse_args()
+
+    docs = sorted(args.docs_dir.glob("*.md"))
     if not docs:
-        print("data/docs 下没有文档", file=sys.stderr)
+        print(f"{args.docs_dir} 下没有文档", file=sys.stderr)
         return 1
 
     headers = {"X-API-Key": _api_key()}
