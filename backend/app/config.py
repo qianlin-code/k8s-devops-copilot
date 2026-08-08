@@ -62,6 +62,10 @@ class Settings(BaseSettings):
     rerank_device: str = "auto"
     # 启动后在后台加载 Rerank 模型。关掉的话这十几秒开销会落在第一个用户请求上。
     warmup_reranker: bool = True
+    # 启动后在后台发一次极小的 LLM 探测调用，让模型权重提前加载到内存/显存。
+    # 本地 Ollama 首次真实对话实测要 115s（模型冷启动+推理都堆在第一个请求上），
+    # 预热后同样的调用降到 1s 量级。云端 provider 探测调用几乎零成本，默认也开着。
+    warmup_llm: bool = True
 
     qdrant_path: str = "./data/qdrant_storage"
     qdrant_collection_prefix: str = "kb"
@@ -76,8 +80,15 @@ class Settings(BaseSettings):
     chunk_size: int = Field(default=500, ge=100, le=4000)
     chunk_overlap: int = Field(default=80, ge=0)
     retrieve_top_k: int = Field(default=10, ge=1, le=100)
-    # rerank 归一化分数低于此阈值视为不相关，让"检索为空"分支可达
-    min_rerank_score: float = Field(default=0.15, ge=0.0, le=1.0)
+    # rerank 归一化分数低于此阈值视为不相关，让"检索为空"分支可达。
+    # 0.12 来自 scripts/eval_rerank_threshold.py 对 38 条案例的敏感性分析：
+    # 相比原 0.15，空 context 占比从 10.5% 降到 2.6%，hard 案例命中率
+    # 82.4%→88.2%，均噪声数仅增 0.05；再往下（0.10/0.08）hit_rate 不再提升，
+    # 只多引入噪声。端到端 eval_ragas.py 对照（q04/q14/q22/q25/q27/q31-q38）
+    # 确认误路由案例（q04/q27）在两个阈值下结果一致——它们的干扰 chunk 分数
+    # 本就高于 0.15，不受此项调整影响；faithfulness 0.354→0.492，
+    # answer_relevancy 0.415→0.485，无新增路由退化。详见 docs/eval_bad_cases.md。
+    min_rerank_score: float = Field(default=0.12, ge=0.0, le=1.0)
     enable_hybrid_retrieve: bool = True
     enable_query_rewrite: bool = True
     rrf_k: int = Field(default=60, ge=1)

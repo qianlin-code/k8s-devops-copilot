@@ -46,11 +46,15 @@ async def lifespan(app: FastAPI):
     # 这笔开销会落在第一个用户请求上——实测国内网络下 HF 校验重试让首个
     # 请求多等 300s。后台加载：服务立即可用，模型就绪前检索自动降级为
     # RRF 融合顺序。
-    warmup = asyncio.create_task(_warmup_reranker())
+    warmup_tasks = [
+        asyncio.create_task(_warmup_reranker()),
+        asyncio.create_task(_warmup_llm()),
+    ]
     try:
         yield
     finally:
-        warmup.cancel()
+        for task in warmup_tasks:
+            task.cancel()
 
 
 async def _warmup_reranker() -> None:
@@ -72,6 +76,42 @@ async def _warmup_reranker() -> None:
         logger,
         logging.INFO,
         "reranker_warmed_up",
+        elapsed_ms=int((time.perf_counter() - started) * 1000),
+    )
+
+
+async def _warmup_llm() -> None:
+    """发一次最小的 chat 调用把模型权重提前加载，避免首个真实用户请求
+    背上冷启动开销（本地 Ollama 实测首次对话耗时 115s，预热后降到 1s 量级）。
+    """
+    if not get_settings().warmup_llm:
+        return
+    from app.llm.factory import get_llm_client
+
+    started = time.perf_counter()
+    try:
+        client = get_llm_client()
+        # chat() 是同步阻塞调用，放线程里跑，别卡住事件循环
+        await asyncio.to_thread(
+            client.chat,
+            [{"role": "user", "content": "ping"}],
+            temperature=0.0,
+            max_tokens=1,
+        )
+    except Exception as exc:  # noqa: BLE001
+        # 预热失败不影响服务可用性：第一个真实请求会自然触发加载，
+        # 只是失去了"提前"的收益，不该因为探测失败就拒绝启动。
+        log_event(
+            logger,
+            logging.WARNING,
+            "llm_warmup_failed",
+            detail=f"{type(exc).__name__}: {exc}"[:200],
+        )
+        return
+    log_event(
+        logger,
+        logging.INFO,
+        "llm_warmed_up",
         elapsed_ms=int((time.perf_counter() - started) * 1000),
     )
 
