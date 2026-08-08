@@ -125,14 +125,14 @@ def main() -> int:
             show_trace(body["trace"])
 
     print("\n--- 审计与历史 ---")
-    _, audits = call("GET", "/tool-audits")
+    _, audits = call("GET", "/tool-audits?user_id=u-1001")
     print(f"  审计 {audits['total']} 条:")
     for a in audits["items"]:
         print(
             f"    {a['tool_name']:24s} write={a['is_write']!s:5s} ok={a['success']!s:5s} "
             f"cache={a['cache_hit']!s:5s} req_id={a['request_id']}"
         )
-    _, convs = call("GET", "/conversations")
+    _, convs = call("GET", "/conversations?user_id=u-1001")
     print(f"  会话 {convs['total']} 个，消息数 {convs['conversations'][0]['message_count']}")
 
     print("\n--- 安全拦截 ---")

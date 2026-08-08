@@ -93,18 +93,26 @@ def stream_chat(index: int, question: str) -> None:
 
 
 def poll_health(stop: threading.Event) -> None:
-    """模拟前端 15s 心跳，但压到 1s 以放大并发。"""
+    """模拟前端 15s 心跳，但压到 1s 以放大并发。
+
+    超时放宽到 10s：GPU 满载时（3 路 SSE 对话并行）连接池会被挤占，
+    5s 窗口下偶发客户端超时，但服务端日志无对应 5xx——记录具体异常类型
+    才能区分这是客户端超时还是服务端真的挂了。
+    """
     count = failures = 0
-    with httpx.Client(timeout=5.0) as client:
+    exceptions: list[str] = []
+    with httpx.Client(timeout=10.0) as client:
         while not stop.is_set():
             count += 1
             try:
                 if client.get(f"{BASE}/health").status_code != 200:
                     failures += 1
-            except Exception:
+            except Exception as exc:
                 failures += 1
+                exceptions.append(type(exc).__name__)
             stop.wait(1.0)
-    _record("health", f"{count - failures}/{count} ok", 0, "存在失败" if failures else None)
+    detail = f"存在失败: {', '.join(exceptions)}" if exceptions else None
+    _record("health", f"{count - failures}/{count} ok", 0, detail)
 
 
 def poll_history(stop: threading.Event) -> None:

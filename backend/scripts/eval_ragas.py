@@ -34,6 +34,7 @@
 
 import argparse
 import json
+import math
 import os
 import shutil
 import sys
@@ -391,9 +392,16 @@ def _print_report(aggregates: list[AggregateResult]) -> None:
     print("-" * 100)
     for a in aggregates:
         tool_str = f"{a.tool_routing_accuracy:.1%}" if a.tool_routing_accuracy is not None else "n/a"
+        # knowledge_cases 为空时是 float("nan")，{:.1%} 会打印成 "nan%"——
+        # 用同样的 "n/a" 展示，而不是让读者误以为是个真实算出来的百分比
+        knowledge_str = (
+            "n/a"
+            if math.isnan(a.knowledge_routing_accuracy)
+            else f"{a.knowledge_routing_accuracy:.1%}"
+        )
         print(
             f"{a.mode:<8} {a.count:>6} {a.context_precision:>8.1%} {a.context_recall:>10.1%} "
-            f"{a.knowledge_routing_accuracy:>17.1%} {tool_str:>13} "
+            f"{knowledge_str:>17} {tool_str:>13} "
             f"{a.faithfulness:>12.3f} {a.answer_relevancy:>10.3f}"
         )
     print("-" * 100)
