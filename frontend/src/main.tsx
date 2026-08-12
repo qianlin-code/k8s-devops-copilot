@@ -7,10 +7,7 @@ import './styles.css'
 
 createRoot(document.getElementById('root')!).render(
   <StrictMode>
-    {/* 提前启用 v7 行为，消除控制台警告并避免升级时的行为突变 */}
-    <BrowserRouter
-      future={{ v7_startTransition: true, v7_relativeSplatPath: true }}
-    >
+    <BrowserRouter>
       <App />
     </BrowserRouter>
   </StrictMode>,

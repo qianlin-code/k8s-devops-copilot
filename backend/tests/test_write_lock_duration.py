@@ -1,4 +1,4 @@
-"""写锁持有时长测试。
+﻿"""写锁持有时长测试。
 
 原实现在 flush() 开启写事务后才跑检索 + Agent 循环（20-40s），
 全程攥着 SQLite 写锁 —— 并发请求即使有 busy_timeout 也等不到。
@@ -9,7 +9,7 @@ from fastapi.testclient import TestClient
 from sqlalchemy import text
 
 from app.storage.db import get_engine, session_scope
-from tests.conftest import API_HEADERS
+from tests.conftest import API_HEADERS, auth_headers
 
 
 def _wal_has_uncommitted_writer() -> bool:
@@ -47,7 +47,7 @@ def test_user_message_is_committed_before_long_work(
 
     resp = client.post(
         "/api/v1/chat",
-        json={"question": "u-1001 登录 403 怎么办", "user_id": "u-1001"},
+        json={"question": "u-1001 登录 403 怎么办"},
         headers=API_HEADERS,
     )
     assert resp.status_code == 200
@@ -77,7 +77,7 @@ def test_streaming_also_commits_before_long_work(
     with client.stream(
         "POST",
         "/api/v1/chat/stream",
-        json={"question": "u-1001 登录 403 怎么办", "user_id": "u-1001"},
+        json={"question": "u-1001 登录 403 怎么办"},
         headers=API_HEADERS,
     ) as resp:
         resp.read()
@@ -121,7 +121,7 @@ def test_new_conversation_insert_survives_concurrent_writer(
     started = time.perf_counter()
     resp = client.post(
         "/api/v1/chat",
-        json={"question": "u-1001 登录 403 怎么办", "user_id": "u-1001"},
+        json={"question": "u-1001 登录 403 怎么办"},
         headers=API_HEADERS,
     )
     waited = time.perf_counter() - started
@@ -165,7 +165,7 @@ def test_streaming_survives_concurrent_writer(
     with client.stream(
         "POST",
         "/api/v1/chat/stream",
-        json={"question": "u-1001 登录 403 怎么办", "user_id": "u-1001"},
+        json={"question": "u-1001 登录 403 怎么办"},
         headers=API_HEADERS,
     ) as resp:
         raw = resp.read().decode("utf-8")
@@ -217,7 +217,7 @@ def test_audit_does_not_hold_lock_through_remaining_steps(
 
     resp = client.post(
         "/api/v1/chat",
-        json={"question": "查一下 u-1001 的账号状态", "user_id": "u-1001"},
+        json={"question": "查一下 u-1001 的账号状态"},
         headers=API_HEADERS,
     )
     assert resp.status_code == 200
@@ -229,7 +229,7 @@ def test_conversation_survives_after_commit(client: TestClient, seeded_kb: str) 
     """中途 commit 后仍能正常写入助手消息并返回完整响应。"""
     body = client.post(
         "/api/v1/chat",
-        json={"question": "u-1001 登录 403 怎么办", "user_id": "u-1001"},
+        json={"question": "u-1001 登录 403 怎么办"},
         headers=API_HEADERS,
     ).json()
 

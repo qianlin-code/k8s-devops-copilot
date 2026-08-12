@@ -26,7 +26,8 @@ def test_readiness_matches_schema(client: TestClient) -> None:
     assert {c.name for c in body.checks} >= {"config", "database", "vector_store"}
 
 
-def test_missing_api_key_returns_unified_error(client: TestClient) -> None:
+def test_missing_jwt_returns_unified_error(client: TestClient) -> None:
+    """JWT 切换后：缺少 Authorization header 应返回 401。"""
     resp = client.get("/api/v1/conversations")
     assert resp.status_code == 401
     error = assert_error_contract(resp.json())
@@ -34,8 +35,9 @@ def test_missing_api_key_returns_unified_error(client: TestClient) -> None:
     assert error.retryable is False
 
 
-def test_wrong_api_key_returns_unified_error(client: TestClient) -> None:
-    resp = client.get("/api/v1/conversations", headers={"X-API-Key": "nope"})
+def test_invalid_jwt_returns_unified_error(client: TestClient) -> None:
+    """JWT 切换后：无效 token 应返回 401。"""
+    resp = client.get("/api/v1/conversations", headers={"Authorization": "Bearer invalid-token"})
     assert resp.status_code == 401
     assert assert_error_contract(resp.json()).code == "UNAUTHORIZED"
 
@@ -50,7 +52,7 @@ def test_extra_field_is_rejected(client: TestClient) -> None:
     resp = client.post(
         "/api/v1/chat",
         headers=API_HEADERS,
-        json={"question": "hi", "user_id": "u-1001", "rogue_field": 1},
+        json={"question": "hi", "rogue_field": 1},
     )
     assert resp.status_code == 422
     error = assert_error_contract(resp.json())
@@ -61,7 +63,8 @@ def test_extra_field_is_rejected(client: TestClient) -> None:
 
 
 def test_missing_required_field_is_rejected(client: TestClient) -> None:
-    resp = client.post("/api/v1/chat", headers=API_HEADERS, json={"question": "hi"})
+    """user_id 已从 JWT token 获取，不再是必填字段。测试其他必填字段缺失。"""
+    resp = client.post("/api/v1/chat", headers=API_HEADERS, json={})
     assert resp.status_code == 422
     assert assert_error_contract(resp.json()).code == "VALIDATION_FAILED"
 

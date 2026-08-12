@@ -6,145 +6,151 @@ from sqlalchemy import select
 from app.agent.tools.base import Tool, ToolArgs, ToolContext, ToolResult
 from app.errors import ErrorCode, ToolError
 from app.schemas.base import to_utc_iso
-from app.storage.models import MockAccount, MockOrder, Ticket
+from app.storage.models import Incident, MockDeployment, MockPod
 
 
-class GetAccountStatusArgs(ToolArgs):
-    user_id: str = Field(description="要查询的账号 ID，例如 u-1001")
+class GetPodStatusArgs(ToolArgs):
+    namespace: str = Field(description="Pod 所在命名空间，例如 ops-demo")
+    name: str = Field(description="Pod 名称，例如 api-gateway-7f9c")
 
 
-class GetAccountStatusResult(ToolResult):
-    user_id: str
-    email: str
-    status: str
-    permission_level: str
-    locked_reason: Optional[str] = None
-    last_login_at: Optional[str] = None
-    cache_version: int
+class GetPodStatusResult(ToolResult):
+    namespace: str
+    name: str
+    phase: str
+    reason: Optional[str] = None
+    node_name: Optional[str] = None
+    restart_count: int
+    last_transition_at: Optional[str] = None
 
 
-class GetAccountStatusTool(Tool[GetAccountStatusArgs, GetAccountStatusResult]):
-    name: ClassVar[str] = "get_account_status"
+class GetPodStatusTool(Tool[GetPodStatusArgs, GetPodStatusResult]):
+    name: ClassVar[str] = "get_pod_status"
     description: ClassVar[str] = (
-        "查询账号的启用状态、权限等级、锁定原因。诊断登录失败(403/401)、权限不足类问题时使用。"
+        "查询 Pod 的运行阶段、调度节点、重启次数与异常原因。"
+        "诊断 Pending/CrashLoopBackOff/ImagePullBackOff 类问题时使用。"
     )
     is_write: ClassVar[bool] = False
     cacheable: ClassVar[bool] = True
-    args_schema: ClassVar[type] = GetAccountStatusArgs
+    args_schema: ClassVar[type] = GetPodStatusArgs
 
-    def run(
-        self, args: GetAccountStatusArgs, ctx: ToolContext
-    ) -> GetAccountStatusResult:
-        account = ctx.session.get(MockAccount, args.user_id)
-        if account is None:
+    def run(self, args: GetPodStatusArgs, ctx: ToolContext) -> GetPodStatusResult:
+        pod = ctx.session.get(MockPod, (args.namespace, args.name))
+        if pod is None:
             raise ToolError(
-                f"Account '{args.user_id}' not found",
+                f"Pod '{args.namespace}/{args.name}' not found",
                 code=ErrorCode.RESOURCE_NOT_FOUND,
-                details={"user_id": args.user_id},
+                details={"namespace": args.namespace, "name": args.name},
             )
-        return GetAccountStatusResult(
-            user_id=account.user_id,
-            email=account.email,
-            status=account.status,
-            permission_level=account.permission_level,
-            locked_reason=account.locked_reason,
-            last_login_at=to_utc_iso(account.last_login_at)
-            if account.last_login_at
+        return GetPodStatusResult(
+            namespace=pod.namespace,
+            name=pod.name,
+            phase=pod.phase,
+            reason=pod.reason,
+            node_name=pod.node_name,
+            restart_count=pod.restart_count,
+            last_transition_at=to_utc_iso(pod.last_transition_at)
+            if pod.last_transition_at
             else None,
-            cache_version=account.cache_version,
         )
 
 
-class ListOrdersArgs(ToolArgs):
-    user_id: str = Field(description="账号 ID")
-    status: Optional[str] = Field(
-        default=None, description="可选状态过滤：paid/pending_payment/overdue"
+class ListDeploymentsArgs(ToolArgs):
+    namespace: str = Field(description="命名空间，例如 ops-demo")
+    name: Optional[str] = Field(
+        default=None, description="可选：只查这一个 Deployment 名称"
     )
 
 
-class OrderItem(ToolResult):
-    order_id: str
-    product: str
-    status: str
-    amount: float
-    created_at: str
+class DeploymentItem(ToolResult):
+    namespace: str
+    name: str
+    image: str
+    replicas: int
+    available_replicas: int
+    updated_at: str
 
 
-class ListOrdersResult(ToolResult):
-    user_id: str
+class ListDeploymentsResult(ToolResult):
+    namespace: str
     total: int
-    orders: list[OrderItem]
+    deployments: list[DeploymentItem]
 
 
-class ListOrdersTool(Tool[ListOrdersArgs, ListOrdersResult]):
-    name: ClassVar[str] = "list_orders"
+class ListDeploymentsTool(Tool[ListDeploymentsArgs, ListDeploymentsResult]):
+    name: ClassVar[str] = "list_deployments"
     description: ClassVar[str] = (
-        "查询账号下的订单及付款状态。处理欠费停服、订阅到期、扩容账单类问题时使用。"
+        "查询命名空间下 Deployment 的期望副本数、可用副本数与镜像版本。"
+        "处理扩缩容异常、副本不足、镜像版本核对类问题时使用。"
     )
     is_write: ClassVar[bool] = False
     cacheable: ClassVar[bool] = True
-    args_schema: ClassVar[type] = ListOrdersArgs
+    args_schema: ClassVar[type] = ListDeploymentsArgs
 
-    def run(self, args: ListOrdersArgs, ctx: ToolContext) -> ListOrdersResult:
-        stmt = select(MockOrder).where(MockOrder.user_id == args.user_id)
-        if args.status:
-            stmt = stmt.where(MockOrder.status == args.status)
-        rows = ctx.session.scalars(stmt.order_by(MockOrder.created_at.desc())).all()
-        return ListOrdersResult(
-            user_id=args.user_id,
+    def run(
+        self, args: ListDeploymentsArgs, ctx: ToolContext
+    ) -> ListDeploymentsResult:
+        stmt = select(MockDeployment).where(MockDeployment.namespace == args.namespace)
+        if args.name:
+            stmt = stmt.where(MockDeployment.name == args.name)
+        rows = ctx.session.scalars(stmt.order_by(MockDeployment.name)).all()
+        return ListDeploymentsResult(
+            namespace=args.namespace,
             total=len(rows),
-            orders=[
-                OrderItem(
-                    order_id=r.id,
-                    product=r.product,
-                    status=r.status,
-                    amount=r.amount,
-                    created_at=to_utc_iso(r.created_at),
+            deployments=[
+                DeploymentItem(
+                    namespace=r.namespace,
+                    name=r.name,
+                    image=r.image,
+                    replicas=r.replicas,
+                    available_replicas=r.available_replicas,
+                    updated_at=to_utc_iso(r.updated_at),
                 )
                 for r in rows
             ],
         )
 
 
-class ListTicketsArgs(ToolArgs):
-    user_id: str = Field(description="账号 ID")
+class ListAlertsArgs(ToolArgs):
+    namespace: str = Field(description="命名空间")
     status: Optional[str] = Field(default=None, description="可选状态过滤")
 
 
-class TicketItem(ToolResult):
-    ticket_id: str
+class AlertItem(ToolResult):
+    incident_id: str
     title: str
     status: str
     priority: str
     created_at: str
 
 
-class ListTicketsResult(ToolResult):
-    user_id: str
+class ListAlertsResult(ToolResult):
+    namespace: str
     total: int
-    tickets: list[TicketItem]
+    alerts: list[AlertItem]
 
 
-class ListTicketsTool(Tool[ListTicketsArgs, ListTicketsResult]):
-    name: ClassVar[str] = "list_tickets"
+class ListAlertsTool(Tool[ListAlertsArgs, ListAlertsResult]):
+    name: ClassVar[str] = "list_alerts"
     description: ClassVar[str] = (
-        "查询账号已提交的工单。用户问进度、或判断是否已有重复工单时使用。"
+        "查询命名空间下已创建的告警事件工单。用户问处理进度、"
+        "或判断是否已有重复告警时使用。"
     )
     is_write: ClassVar[bool] = False
     cacheable: ClassVar[bool] = True
-    args_schema: ClassVar[type] = ListTicketsArgs
+    args_schema: ClassVar[type] = ListAlertsArgs
 
-    def run(self, args: ListTicketsArgs, ctx: ToolContext) -> ListTicketsResult:
-        stmt = select(Ticket).where(Ticket.user_id == args.user_id)
+    def run(self, args: ListAlertsArgs, ctx: ToolContext) -> ListAlertsResult:
+        stmt = select(Incident).where(Incident.namespace == args.namespace)
         if args.status:
-            stmt = stmt.where(Ticket.status == args.status)
-        rows = ctx.session.scalars(stmt.order_by(Ticket.created_at.desc())).all()
-        return ListTicketsResult(
-            user_id=args.user_id,
+            stmt = stmt.where(Incident.status == args.status)
+        rows = ctx.session.scalars(stmt.order_by(Incident.created_at.desc())).all()
+        return ListAlertsResult(
+            namespace=args.namespace,
             total=len(rows),
-            tickets=[
-                TicketItem(
-                    ticket_id=r.id,
+            alerts=[
+                AlertItem(
+                    incident_id=r.id,
                     title=r.title,
                     status=r.status,
                     priority=r.priority,

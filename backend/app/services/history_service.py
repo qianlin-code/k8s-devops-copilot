@@ -16,8 +16,14 @@ from app.storage.models import Conversation, Message, MessageRole, ToolCallAudit
 
 class HistoryService:
     def list_conversations(
-        self, session: Session, *, user_id: str | None, limit: int, offset: int
+        self, session: Session, *, user_id: str, limit: int, offset: int
     ) -> ConversationListResponse:
+        """会话列表按用户隔离。
+
+        `user_id` 必填而非 Optional：可选参数默认「不过滤」会在漏传时静默
+        返回全量数据（越权风险见 docs/评测与失败案例.md）。路由层已强制必填，
+        这里同步收紧，避免其他调用方直接调 service 时绕过隔离。
+        """
         counts = dict(
             session.execute(
                 select(Message.conversation_id, func.count(Message.id)).group_by(
@@ -25,9 +31,7 @@ class HistoryService:
                 )
             ).all()
         )
-        stmt = select(Conversation)
-        if user_id:
-            stmt = stmt.where(Conversation.user_id == user_id)
+        stmt = select(Conversation).where(Conversation.user_id == user_id)
         total = session.scalar(
             select(func.count()).select_from(stmt.subquery())
         ) or 0

@@ -8,7 +8,7 @@ import type {
 } from '@/api/types'
 import './KnowledgeBasePage.css'
 
-export default function KnowledgeBasePage({ userId }: { userId: string }) {
+export default function KnowledgeBasePage() {
   const [docs, setDocs] = useState<DocumentListResponse | null>(null)
   const [pending, setPending] = useState<SedimentationListResponse | null>(null)
   const [title, setTitle] = useState('')
@@ -81,7 +81,6 @@ export default function KnowledgeBasePage({ userId }: { userId: string }) {
   const review = (entry: SedimentationEntry, approved: boolean) =>
     run(async () => {
       const { data } = await api.reviewSedimentation(entry.pending_id, {
-        reviewer: userId,
         approved,
         note: approved ? '人工审核通过' : '人工审核驳回',
       })

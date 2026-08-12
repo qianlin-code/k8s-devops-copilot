@@ -24,7 +24,7 @@ def main() -> int:
     workdir = Path(tempfile.mkdtemp(prefix="diag-"))
     os.environ.update(
         {
-            "API_KEY": "diag",
+            "JWT_SECRET_KEY": "diagnostic-jwt-secret-not-for-production",
             "STARTUP_PROBE_EXTERNAL": "false",
             "DATABASE_URL": f"sqlite:///{(workdir / 'diag.db').as_posix()}",
             "QDRANT_PATH": str(workdir / "qdrant"),
@@ -69,7 +69,7 @@ def _run(case_id: str) -> int:
         vector_store=store, embedding_client=embedding, bm25_index=bm25
     )
     with session_scope() as session:
-        for doc in sorted((ROOT / "data" / "docs").glob("*.md")):
+        for doc in sorted((ROOT / "data" / "docs_k8s").glob("*.md")):
             ingestor.ingest_text(
                 session,
                 title=doc.stem,

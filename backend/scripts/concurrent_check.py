@@ -13,50 +13,58 @@
 再用 `$env:COPILOT_BASE="http://127.0.0.1:8001"` 指向它。
 """
 
+import argparse
 import json
 import os
 import sys
 import threading
 import time
+from datetime import datetime, timezone
 from pathlib import Path
 
 import httpx
 
-ROOT = Path(__file__).resolve().parent.parent
-sys.path.insert(0, str(ROOT))
-
 BASE = os.environ.get("COPILOT_BASE", "http://127.0.0.1:8000") + "/api/v1"
 
 
-def _api_key() -> str:
-    """与 e2e_check.py/sse_check.py 保持一致：优先读 .env，避免三份脚本
-    各自硬编码同一个默认密钥，改了 .env 却漏改脚本导致鉴权失败。
-    """
-    env = ROOT / ".env"
-    if env.exists():
-        for line in env.read_text(encoding="utf-8").splitlines():
-            if line.startswith("API_KEY="):
-                return line.split("=", 1)[1].strip()
-    return "dev-local-api-key-change-me"
+def _login_headers() -> dict[str, str]:
+    username = os.environ.get("COPILOT_USER_USERNAME")
+    password = os.environ.get("COPILOT_USER_PASSWORD")
+    if not username or not password:
+        raise RuntimeError("缺少 COPILOT_USER_USERNAME 或 COPILOT_USER_PASSWORD")
+    with httpx.Client(timeout=10.0) as client:
+        response = client.post(
+            f"{BASE}/auth/login", json={"username": username, "password": password}
+        )
+    response.raise_for_status()
+    return {"Authorization": f"Bearer {response.json()['access_token']}"}
 
 
-HEADERS = {"X-API-Key": _api_key()}
-USER = "u-1001"
+HEADERS: dict[str, str] = {}
 
 QUESTIONS = [
-    "账号 u-1001 登录提示 403 Forbidden 该怎么处理",
-    "u-1001 的账号状态是什么",
-    "欠费了服务什么时候恢复",
+    "ops-demo 命名空间下 api-gateway-7f9c 这个 Pod 一直是 Pending 该怎么处理",
+    "api-gateway-7f9c 这个 Pod 的状态是什么",
+    "worker-queue 这个 Deployment 副本数不够是什么原因",
 ]
 
 _lock = threading.Lock()
 _failures: list[str] = []
 _results: list[tuple[str, str, float]] = []
+_details: dict[str, dict[str, object]] = {}
 
 
-def _record(label: str, outcome: str, elapsed: float, failure: str | None = None) -> None:
+def _record(
+    label: str,
+    outcome: str,
+    elapsed: float,
+    failure: str | None = None,
+    *,
+    details: dict[str, object] | None = None,
+) -> None:
     with _lock:
         _results.append((label, outcome, elapsed))
+        _details[label] = details or {}
         if failure:
             _failures.append(f"{label}: {failure}")
 
@@ -72,15 +80,20 @@ def stream_chat(index: int, question: str) -> None:
                 "POST",
                 f"{BASE}/chat/stream",
                 headers=HEADERS,
-                json={"question": question, "user_id": USER, "include_trace": True},
+                json={"question": question, "include_trace": True},
             ) as resp:
                 if resp.status_code != 200:
-                    body = resp.read().decode("utf-8")[:200]
-                    _record(label, f"HTTP {resp.status_code}", 0, body)
+                    _record(
+                        label,
+                        f"HTTP {resp.status_code}",
+                        0,
+                        f"http_status={resp.status_code}",
+                    )
                     return
                 buffer = ""
                 events: list[str] = []
                 error_payload = None
+                first_event_ms: int | None = None
                 for chunk in resp.iter_text():
                     buffer += chunk
                     blocks = buffer.split("\n\n")
@@ -95,6 +108,10 @@ def stream_chat(index: int, question: str) -> None:
                             elif line.startswith("data: "):
                                 data = line[6:]
                         if kind:
+                            if first_event_ms is None:
+                                first_event_ms = round(
+                                    (time.perf_counter() - started) * 1000
+                                )
                             events.append(kind)
                             if kind == "error" and data:
                                 error_payload = json.loads(data)
@@ -104,14 +121,26 @@ def stream_chat(index: int, question: str) -> None:
                 label,
                 f"error/{error_payload['code']}",
                 elapsed,
-                f"{error_payload['code']}: {error_payload['message'][:120]}",
+                f"sse_error={error_payload['code']}",
+                details={"event_types": events, "first_event_ms": first_event_ms},
             )
         elif events and events[-1] == "done":
-            _record(label, "done", elapsed)
+            _record(
+                label,
+                "done",
+                elapsed,
+                details={"event_types": events, "first_event_ms": first_event_ms},
+            )
         else:
-            _record(label, "incomplete", elapsed, f"事件序列异常: {events}")
+            _record(
+                label,
+                "incomplete",
+                elapsed,
+                "event_sequence_incomplete",
+                details={"event_types": events, "first_event_ms": first_event_ms},
+            )
     except Exception as exc:
-        _record(label, type(exc).__name__, time.perf_counter() - started, str(exc)[:150])
+        _record(label, type(exc).__name__, time.perf_counter() - started, type(exc).__name__)
 
 
 def poll_health(stop: threading.Event) -> None:
@@ -134,7 +163,17 @@ def poll_health(stop: threading.Event) -> None:
                 exceptions.append(type(exc).__name__)
             stop.wait(1.0)
     detail = f"存在失败: {', '.join(exceptions)}" if exceptions else None
-    _record("health", f"{count - failures}/{count} ok", 0, detail)
+    _record(
+        "health",
+        f"{count - failures}/{count} ok",
+        0,
+        detail,
+        details={
+            "requests": count,
+            "failures": failures,
+            "exception_types": sorted(set(exceptions)),
+        },
+    )
 
 
 def poll_history(stop: threading.Event) -> None:
@@ -147,21 +186,63 @@ def poll_history(stop: threading.Event) -> None:
                 resp = client.get(
                     f"{BASE}/conversations",
                     headers=HEADERS,
-                    params={"user_id": USER, "limit": 20},
+                    params={"limit": 20},
                 )
                 if resp.status_code != 200:
                     failures += 1
             except Exception:
                 failures += 1
             stop.wait(1.5)
-    _record("history", f"{count - failures}/{count} ok", 0, "存在失败" if failures else None)
+    _record(
+        "history",
+        f"{count - failures}/{count} ok",
+        0,
+        "history_poll_failure" if failures else None,
+        details={"requests": count, "failures": failures},
+    )
+
+
+def _write_report(path: Path, *, started_at: str, total_seconds: float) -> None:
+    """Persist aggregate timings without serializing auth headers or responses."""
+    path.parent.mkdir(parents=True, exist_ok=True)
+    rows = [
+        {
+            "label": label,
+            "outcome": outcome,
+            "elapsed_ms": round(elapsed * 1000),
+            "details": _details.get(label, {}),
+        }
+        for label, outcome, elapsed in sorted(_results)
+    ]
+    payload = {
+        "schema_version": 1,
+        "started_at": started_at,
+        "finished_at": datetime.now(timezone.utc).isoformat().replace("+00:00", "Z"),
+        "base_url": BASE,
+        "stream_count": len(QUESTIONS),
+        "total_elapsed_ms": round(total_seconds * 1000),
+        "results": rows,
+        "failure_categories": sorted(set(item.split(": ", 1)[-1] for item in _failures)),
+        "database_locked_detected": any("database is locked" in item.lower() for item in _failures),
+        "runtime_credentials": "environment-only-not-serialized",
+        "passed": not _failures,
+    }
+    path.write_text(json.dumps(payload, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
 
 
 def main() -> int:
+    parser = argparse.ArgumentParser(description="低并发 SSE/health/history 真实服务检查")
+    parser.add_argument("--report", type=Path, help="write a redacted JSON report")
+    args = parser.parse_args()
+    started_at = datetime.now(timezone.utc).isoformat().replace("+00:00", "Z")
+    global HEADERS
     try:
         httpx.get(f"{BASE}/health", timeout=5.0).raise_for_status()
+        HEADERS = _login_headers()
     except Exception as exc:
         print(f"服务未就绪: {exc}")
+        if args.report:
+            _write_report(args.report, started_at=started_at, total_seconds=0)
         return 1
 
     stop = threading.Event()
@@ -203,9 +284,13 @@ def main() -> int:
         locked = [f for f in _failures if "locked" in f.lower()]
         if locked:
             print("\n  仍存在 database is locked")
+        if args.report:
+            _write_report(args.report, started_at=started_at, total_seconds=total)
         return 1
 
     print("\n  并发场景全部通过，无 database is locked")
+    if args.report:
+        _write_report(args.report, started_at=started_at, total_seconds=total)
     return 0
 
 

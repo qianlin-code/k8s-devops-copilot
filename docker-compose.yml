@@ -3,8 +3,8 @@ services:
     build:
       context: ./backend
       args:
-        # 改为 true 会在镜像里装 torch + FlagEmbedding（约 +2 GB）
-        WITH_RERANK: "false"
+        # 真实验收用 WITH_RERANK=true 验证完整 RAG；日常演示默认保持轻量镜像。
+        WITH_RERANK: ${WITH_RERANK:-false}
     env_file:
       - ./backend/.env
     environment:
@@ -13,10 +13,12 @@ services:
       DATABASE_URL: sqlite:////app/data/app.db
       QDRANT_PATH: /app/data/qdrant_storage
       # 这份 compose 面向本地开发/演示。上生产请改为 prod ——
-      # 届时启动校验会强制要求强 API_KEY 与真实 CORS 来源（见 config.py）。
+      # 届时启动校验会强制要求强 JWT_SECRET_KEY 与真实 CORS 来源（见 config.py）。
       ENVIRONMENT: ${ENVIRONMENT:-dev}
+      # 验收编排器覆写为 true，确保 readiness 真实探测 LLM、Embedding 与 Reranker。
+      STARTUP_PROBE_EXTERNAL: ${STARTUP_PROBE_EXTERNAL:-false}
     ports:
-      - "8000:8000"
+      - "${BACKEND_PORT:-8000}:8000"
     volumes:
       # 数据持久化：SQLite 与向量库不随容器销毁
       - copilot-data:/app/data
@@ -30,10 +32,12 @@ services:
     build:
       context: ./frontend
     ports:
-      - "5173:80"
+      - "${FRONTEND_PORT:-5173}:80"
     depends_on:
       backend:
-        condition: service_healthy
+        # 前端是静态 Nginx；无需阻塞到 Reranker 的首次预热完成。
+        # 验收编排会显式等待 backend /health，再验证前端 HTTP 可访问。
+        condition: service_started
     restart: unless-stopped
 
 volumes:

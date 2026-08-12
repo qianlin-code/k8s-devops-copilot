@@ -127,10 +127,20 @@ class ToolExecutor:
     def _find_replay(
         self, ctx: ToolContext, tool_name: str, request_id: str | None
     ) -> ToolCallAudit | None:
+        """查找可重放的写操作审计行。
+
+        必须按 conversation_id 限定范围：`request_id` 由 LLM 生成，实测会出现
+        "123456" 这类极易碰撞的值。不限定范围时，B 会话用了 A 会话已用过的
+        request_id 会直接重放 A 的结果，把别人的写操作结果当成自己的返回。
+        表上的唯一约束同样是 (conversation_id, request_id) 复合键。
+        """
         if not request_id:
             return None
         row = ctx.session.scalar(
-            select(ToolCallAudit).where(ToolCallAudit.request_id == request_id)
+            select(ToolCallAudit).where(
+                ToolCallAudit.request_id == request_id,
+                ToolCallAudit.conversation_id == ctx.conversation_id,
+            )
         )
         if row is None:
             return None

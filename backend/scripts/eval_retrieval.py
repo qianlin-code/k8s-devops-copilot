@@ -6,19 +6,19 @@
 """
 
 import argparse
+import hashlib
 import json
 import os
-import shutil
 import sys
-import tempfile
-from dataclasses import dataclass
+from dataclasses import asdict, dataclass, field
+from datetime import datetime, timezone
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(ROOT))
 
 EVAL_SET = ROOT / "data" / "eval_set.json"
-DOCS_DIR = ROOT / "data" / "docs"
+DOCS_DIR = ROOT / "data" / "docs_k8s"
 
 
 @dataclass
@@ -38,13 +38,26 @@ class ConfigResult:
     hard_mrr: float = float("nan")
     hard_hit_at_3: float = float("nan")
     hard_count: int = 0
+    # The runtime can intentionally fall back to RRF when BGE is unavailable.
+    # An evaluation must not publish that fallback as a Rerank result.
+    rerank_verified: bool = True
+    rerank_failure_reasons: list[str] = field(default_factory=list)
+    evaluated_case_count: int = 0
 
 
-def _bootstrap_env(fake: bool) -> Path:
-    workdir = Path(tempfile.mkdtemp(prefix="eval-"))
+def _default_workdir() -> Path:
+    stamp = datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%SZ")
+    return ROOT / "acceptance-evidence" / f"retrieval-{stamp}"
+
+
+def _bootstrap_env(fake: bool, workdir: Path) -> Path:
+    """配置隔离评测工作目录，并保留现场供验收证据复查。"""
+    if workdir.exists() and any(workdir.iterdir()):
+        raise RuntimeError(f"评测工作目录必须为空，拒绝复用已有证据：{workdir}")
+    workdir.mkdir(parents=True, exist_ok=True)
     os.environ.update(
         {
-            "API_KEY": "eval",
+            "JWT_SECRET_KEY": "evaluation-jwt-secret-not-for-production",
             "STARTUP_PROBE_EXTERNAL": "false",
             "DATABASE_URL": f"sqlite:///{(workdir / 'eval.db').as_posix()}",
             "QDRANT_PATH": str(workdir / "qdrant"),
@@ -66,6 +79,16 @@ def _bootstrap_env(fake: bool) -> Path:
             }
         )
     return workdir
+
+
+def _document_manifest(docs: list[Path]) -> list[dict[str, str]]:
+    return [
+        {
+            "name": doc.name,
+            "sha256": hashlib.sha256(doc.read_bytes()).hexdigest(),
+        }
+        for doc in docs
+    ]
 
 
 # 召回宽度与最终输出宽度。前者必须显著大于后者，Rerank 才有筛选空间。
@@ -90,16 +113,31 @@ def main() -> int:
         "--eval-set", type=Path, default=EVAL_SET,
         help="标注评估集路径，默认 data/eval_set.json，需与 --docs-dir 配套",
     )
+    parser.add_argument(
+        "--workdir",
+        type=Path,
+        default=None,
+        help="隔离评测数据目录；默认保存到被忽略的 acceptance-evidence，且不自动清理",
+    )
+    parser.add_argument(
+        "--report-file",
+        type=Path,
+        default=None,
+        help="机器可读 JSON 报告路径；默认写入 workdir/retrieval-report.json",
+    )
     args = parser.parse_args()
 
-    workdir = _bootstrap_env(args.fake)
-    try:
-        return _run(args.fake, args.docs_dir, args.eval_set)
-    finally:
-        shutil.rmtree(workdir, ignore_errors=True)
+    workdir = _bootstrap_env(args.fake, args.workdir or _default_workdir())
+    return _run(
+        args.fake,
+        args.docs_dir,
+        args.eval_set,
+        workdir,
+        args.report_file or workdir / "retrieval-report.json",
+    )
 
 
-def _run(fake: bool, docs_dir: Path, eval_set: Path) -> int:
+def _run(fake: bool, docs_dir: Path, eval_set: Path, workdir: Path, report_file: Path) -> int:
     import time
 
     from app.knowledge.ingest import KnowledgeIngestor
@@ -176,6 +214,7 @@ def _run(fake: bool, docs_dir: Path, eval_set: Path) -> int:
         hard_reciprocal = 0.0
         hard_total = 0
         hard_ranks: list[int] = []
+        rerank_failures: list[str] = []
 
         for case in cases:
             started = time.perf_counter()
@@ -188,6 +227,16 @@ def _run(fake: bool, docs_dir: Path, eval_set: Path) -> int:
                 **flags,
             )
             latencies.append((time.perf_counter() - started) * 1000)
+
+            if flags["enable_rerank"] and not outcome.rerank_applied:
+                rerank_stage = next(
+                    (stage for stage in outcome.stages if stage.name == "rerank"),
+                    None,
+                )
+                note = rerank_stage.note if rerank_stage else "missing_rerank_stage"
+                rerank_failures.append(f"{case['id']}: {note or 'not_applied'}")
+                # Do not mix the RRF fallback rank into Rerank metrics.
+                continue
 
             is_hard = case.get("difficulty") == "hard"
             if is_hard:
@@ -233,10 +282,47 @@ def _run(fake: bool, docs_dir: Path, eval_set: Path) -> int:
                     else float("nan")
                 ),
                 hard_count=hard_total,
+                rerank_verified=not rerank_failures,
+                rerank_failure_reasons=rerank_failures,
+                evaluated_case_count=total - len(rerank_failures),
             )
         )
 
     _print_report(results, len(cases), fake)
+    report_file.parent.mkdir(parents=True, exist_ok=True)
+    report_file.write_text(
+        json.dumps(
+            {
+                "evaluated_at": datetime.now(timezone.utc).isoformat(),
+                "mode": "fake" if fake else "real",
+                "workdir": str(workdir),
+                "documents": _document_manifest(docs),
+                "document_count": len(docs),
+                "chunk_count": store.count(),
+                "bm25_chunk_count": bm25.size,
+                "models": {
+                    "embedding": type(embedding).__name__,
+                    "reranker": type(real_reranker).__name__,
+                },
+                "case_count": len(cases),
+                "results": [asdict(result) for result in results],
+            },
+            ensure_ascii=False,
+            indent=2,
+        )
+        + "\n",
+        encoding="utf-8",
+    )
+    print(f"machine_report={report_file}")
+    failed = [result for result in results if not result.rerank_verified]
+    if failed:
+        for result in failed:
+            print(
+                f"ERROR: {result.label} was degraded; refusing to publish Rerank metrics: "
+                f"{'; '.join(result.rerank_failure_reasons[:3])}",
+                file=sys.stderr,
+            )
+        return 1
     return 0
 
 
@@ -262,6 +348,9 @@ def _print_report(results: list[ConfigResult], total: int, fake: bool) -> None:
     print("-" * 78)
 
     base, hybrid, reranked = results
+    if not reranked.rerank_verified:
+        print("\n!! Rerank was degraded; its evaluation metrics are invalid. !!")
+        return
 
     if base.hard_count:
         print(f"\nhard 子集（{base.hard_count} 条口语化/易混淆查询）:")

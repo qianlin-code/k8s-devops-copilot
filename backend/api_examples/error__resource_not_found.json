@@ -1,24 +1,14 @@
 {
   "endpoint": "error",
-  "http_status": 422,
+  "http_status": 404,
   "request": null,
   "response": {
-    "code": "VALIDATION_FAILED",
-    "message": "Request payload does not match the API contract",
-    "trace_id": "e00d8731a5dd4ec0878b3ee9c6d22d9e",
+    "code": "RESOURCE_NOT_FOUND",
+    "message": "Conversation 'does-not-exist' not found",
+    "trace_id": "ae76c6d15cb4478bb30ab96334f59e47",
     "retryable": false,
     "details": {
-      "violations": [
-        {
-          "type": "missing",
-          "loc": [
-            "query",
-            "user_id"
-          ],
-          "msg": "Field required",
-          "input": null
-        }
-      ]
+      "conversation_id": "does-not-exist"
     }
   }
 }

@@ -48,8 +48,8 @@ ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(ROOT))
 
 EVAL_SET = ROOT / "data" / "eval_set.json"
-DOCS_DIR = ROOT / "data" / "docs"
-EVAL_USER_ID = "eval-user-no-account"
+DOCS_DIR = ROOT / "data" / "docs_k8s"
+EVAL_USER_ID = "eval-ops-no-resource"
 
 CANDIDATE_K = 20
 TOP_N = 5
@@ -129,7 +129,7 @@ def _bootstrap_env(mode: str) -> Path:
     workdir = Path(tempfile.mkdtemp(prefix="ragas-"))
     os.environ.update(
         {
-            "API_KEY": "eval",
+            "JWT_SECRET_KEY": "evaluation-jwt-secret-not-for-production",
             "STARTUP_PROBE_EXTERNAL": "false",
             "DATABASE_URL": f"sqlite:///{(workdir / 'eval.db').as_posix()}",
             "QDRANT_PATH": str(workdir / "qdrant"),
@@ -176,8 +176,8 @@ def _run_case(case: dict, chat_service, session, judge_client) -> CaseResult:
     from app.agent.tools.base import ToolContext
 
     trace_id = f"eval-{case['id']}"
-    # 工具路由案例需要代入真实账号视角才能合理触发工具；纯知识性问题保持
-    # 无账号视角(EVAL_USER_ID)，避免路由因为看到账号 ID 就联想到查账号状态。
+    # 工具路由案例需要代入真实运维人员身份才能合理触发工具；纯知识性问题保持
+    # 中性身份(EVAL_USER_ID)，避免路由因为看到某个身份就联想到查具体资源。
     user_id = case.get("user_id") or EVAL_USER_ID
     retrieval = chat_service._retriever.retrieve(case["query"])  # noqa: SLF001
     result = chat_service._agent.run(  # noqa: SLF001
@@ -313,7 +313,7 @@ def _run_mode(
     judge = get_judge_client()
 
     with session_scope() as session:
-        seed_mock_data(session)  # 工具路由案例需要真实存在的 mock 账号/订单/工单
+        seed_mock_data(session)  # 工具路由案例需要真实存在的 mock Pod/Deployment
 
     ingestor = KnowledgeIngestor(vector_store=store, embedding_client=embedding, bm25_index=bm25)
     docs = sorted(DOCS_DIR.glob("*.md"))

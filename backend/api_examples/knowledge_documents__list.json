@@ -9,15 +9,15 @@
     "bm25_index_size": 2,
     "documents": [
       {
-        "document_id": "02919c68-37b0-415a-a21e-69625fc9f31d",
-        "title": "登录故障排查手册",
+        "document_id": "fe441b96-9e04-481d-9db5-8c6e266d6703",
+        "title": "Pod 生命周期故障排查",
         "source": "upload",
         "source_ref": null,
         "chunk_strategy": "markdown",
         "chunk_count": 2,
-        "char_count": 147,
+        "char_count": 188,
         "collection_name": "kb_fake-embedding_64",
-        "created_at": "2026-08-07T12:34:32.060415Z"
+        "created_at": "2026-08-11T05:46:48.105575Z"
       }
     ]
   }

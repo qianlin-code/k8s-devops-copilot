@@ -2,13 +2,12 @@
   "endpoint": "error",
   "http_status": 422,
   "request": {
-    "question": "<超过 2000 字符的输入>",
-    "user_id": "u-1001"
+    "question": "<超过 2000 字符的输入>"
   },
   "response": {
     "code": "INPUT_TOO_LONG",
     "message": "Input exceeds the 2000 character limit",
-    "trace_id": "0eec43ad41564b9c8732616d0013dd5f",
+    "trace_id": "7b7bde3c83f34d4f965b6c36a15fc22d",
     "retryable": false,
     "details": {
       "length": 2500,

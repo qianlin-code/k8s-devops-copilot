@@ -4,9 +4,9 @@ from functools import lru_cache
 from pydantic import Field, model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
-# 开发默认密钥。生产环境沿用这个值会被启动校验拦下（见 _validate_production）。
-DEFAULT_DEV_API_KEY = "dev-local-api-key-change-me"
-_MIN_PROD_API_KEY_LENGTH = 24
+# JWT 默认密钥。生产环境必须改为随机生成的强密钥（≥32字节）。
+DEFAULT_DEV_JWT_SECRET = "dev-jwt-secret-change-me-in-production"
+_MIN_PROD_JWT_SECRET_LENGTH = 32
 
 
 class Provider(str, Enum):
@@ -29,12 +29,16 @@ class Settings(BaseSettings):
         env_file=".env", env_file_encoding="utf-8", extra="ignore"
     )
 
-    api_key: str = DEFAULT_DEV_API_KEY
     environment: Environment = Environment.DEV
     # 允许跨域的前端来源。生产必须显式配置，否则只放开本地开发端口。
     cors_allow_origins: list[str] = Field(
         default=["http://localhost:5173", "http://127.0.0.1:5173"]
     )
+
+    # JWT 配置
+    jwt_secret_key: str = DEFAULT_DEV_JWT_SECRET
+    jwt_algorithm: str = "HS256"
+    jwt_access_token_expire_hours: int = Field(default=8, ge=1, le=720)  # 1小时~30天
 
     llm_provider: Provider = Provider.OLLAMA
     ollama_base_url: str = "http://localhost:11434/v1"
@@ -87,7 +91,7 @@ class Settings(BaseSettings):
     # 只多引入噪声。端到端 eval_ragas.py 对照（q04/q14/q22/q25/q27/q31-q38）
     # 确认误路由案例（q04/q27）在两个阈值下结果一致——它们的干扰 chunk 分数
     # 本就高于 0.15，不受此项调整影响；faithfulness 0.354→0.492，
-    # answer_relevancy 0.415→0.485，无新增路由退化。详见 docs/eval_bad_cases.md。
+    # answer_relevancy 0.415→0.485，无新增路由退化。历史实验见 docs/评测与失败案例.md。
     min_rerank_score: float = Field(default=0.12, ge=0.0, le=1.0)
     enable_hybrid_retrieve: bool = True
     enable_query_rewrite: bool = True
@@ -119,14 +123,14 @@ class Settings(BaseSettings):
 
     def _validate_production(self) -> None:
         """生产环境的硬性要求：宁可起不来，也不要带着弱密钥或通配 CORS 上线。"""
-        if self.api_key == DEFAULT_DEV_API_KEY:
+        if self.jwt_secret_key == DEFAULT_DEV_JWT_SECRET:
             raise ValueError(
-                "API_KEY still uses the development default; "
-                "set a strong key before running with ENVIRONMENT=prod"
+                "JWT_SECRET_KEY still uses the development default; "
+                "set a strong random key before running with ENVIRONMENT=prod"
             )
-        if len(self.api_key) < _MIN_PROD_API_KEY_LENGTH:
+        if len(self.jwt_secret_key) < _MIN_PROD_JWT_SECRET_LENGTH:
             raise ValueError(
-                f"API_KEY must be at least {_MIN_PROD_API_KEY_LENGTH} characters "
+                f"JWT_SECRET_KEY must be at least {_MIN_PROD_JWT_SECRET_LENGTH} characters "
                 "when ENVIRONMENT=prod"
             )
         if "*" in self.cors_allow_origins:

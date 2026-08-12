@@ -2,21 +2,21 @@
   "endpoint": "knowledge/documents",
   "http_status": 200,
   "request": {
-    "title": "登录故障排查手册",
-    "content": "# 登录故障排查手册\n\n## 403 Forbidden 权限不足\n账号 permission_level 为 restricted 时登录会返回 403，需要管理员将权限提升到 standard，随后刷新权限缓存使变更生效。\n\n## 401 凭证过期\nToken 过期需要重新登录获取新凭证。\n",
+    "title": "Pod 生命周期故障排查",
+    "content": "# Pod 生命周期故障排查\n\n## Pod 停滞在 Pending 状态\nPending 表示 Pod 还没有被调度到任何节点上，通常是资源不足导致调度器无法为其找到合适的节点，需检查集群 CPU/内存剩余容量。\n\n## Pod 反复重启（CrashLoopBackOff）\n容器进程本身异常退出，需查看 kubectl logs --previous 排查上一次崩溃原因。\n",
     "chunk_strategy": "markdown"
   },
   "response": {
     "document": {
-      "document_id": "02919c68-37b0-415a-a21e-69625fc9f31d",
-      "title": "登录故障排查手册",
+      "document_id": "fe441b96-9e04-481d-9db5-8c6e266d6703",
+      "title": "Pod 生命周期故障排查",
       "source": "upload",
       "source_ref": null,
       "chunk_strategy": "markdown",
       "chunk_count": 2,
-      "char_count": 147,
+      "char_count": 188,
       "collection_name": "kb_fake-embedding_64",
-      "created_at": "2026-08-07T12:34:32.060415Z"
+      "created_at": "2026-08-11T05:46:48.105575Z"
     },
     "bm25_index_size": 2
   }

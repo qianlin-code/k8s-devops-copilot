@@ -1,0 +1,17 @@
+{
+  "endpoint": "error",
+  "http_status": 404,
+  "request": {
+    "question": "继续",
+    "conversation_id": "4f40e58d-e1f7-43ca-88de-f15dbf05ad4a"
+  },
+  "response": {
+    "code": "RESOURCE_NOT_FOUND",
+    "message": "Conversation '4f40e58d-e1f7-43ca-88de-f15dbf05ad4a' not found",
+    "trace_id": "287d718bb71345c3bfe5f5f637761468",
+    "retryable": false,
+    "details": {
+      "conversation_id": "4f40e58d-e1f7-43ca-88de-f15dbf05ad4a"
+    }
+  }
+}

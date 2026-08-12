@@ -55,13 +55,13 @@ class DeleteDocumentResponse(StrictBaseModel):
 
 
 class MarkSedimentationRequest(StrictBaseModel):
-    conversation_id: str
-    marked_by: str
+    conversation_id: str = Field(max_length=36)
+    # marked_by 已从 JWT token 的 sub claim 获取，不再接受客户端传入
     proposed_title: Optional[str] = Field(default=None, max_length=255)
 
 
 class ReviewSedimentationRequest(StrictBaseModel):
-    reviewer: str
+    # reviewer 已从 JWT token 的 sub claim 获取，不再接受客户端传入
     approved: bool
     title_override: Optional[str] = Field(default=None, max_length=255)
     note: Optional[str] = None

@@ -7,6 +7,8 @@ class Chunk:
     text: str
     index: int
     heading_path: list[str] = field(default_factory=list)
+    chunk_type: str | None = None
+    is_procedural: bool = False
 
     @property
     def contextual_text(self) -> str:

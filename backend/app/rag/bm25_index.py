@@ -64,6 +64,7 @@ class BM25Index:
                     heading_path=chunk.heading_path,
                     chunk_index=chunk.chunk_index,
                     score=float(score),
+                    is_procedural=chunk.is_procedural,
                 )
             )
         return results

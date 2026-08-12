@@ -16,7 +16,6 @@ ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(ROOT))
 
 _TMP = Path(tempfile.mkdtemp(prefix="typegen-"))
-os.environ.setdefault("API_KEY", "typegen")
 os.environ.setdefault("STARTUP_PROBE_EXTERNAL", "false")
 os.environ.setdefault("DATABASE_URL", f"sqlite:///{(_TMP / 'typegen.db').as_posix()}")
 os.environ.setdefault("QDRANT_PATH", str(_TMP / "qdrant"))
@@ -124,7 +123,7 @@ def main() -> int:
         blocks.append(render_interface(name, schemas[name]))
     blocks.append(build_endpoint_map(spec.get("paths", {})))
     blocks.append(
-        "export const API_KEY_HEADER = 'X-API-Key'\n"
+        "export const AUTHORIZATION_HEADER = 'Authorization'\n"
         "export const TRACE_ID_HEADER = 'X-Trace-Id'\n"
     )
 

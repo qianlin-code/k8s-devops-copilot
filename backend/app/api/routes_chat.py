@@ -9,7 +9,8 @@ from fastapi.responses import StreamingResponse
 from pydantic import BaseModel
 from sqlalchemy.orm import Session
 
-from app.auth import require_api_key
+from app.auth.dependencies import require_jwt
+from app.auth.jwt import AuthContext
 from app.dependencies import get_agent, get_context_manager, get_retriever
 from app.errors import AppError, ErrorCode
 from app.schemas.chat import ChatRequest, ChatResponse, ConfirmWriteRequest
@@ -26,7 +27,7 @@ _HEARTBEAT_SECONDS = 10.0
 
 router = APIRouter(
     tags=["chat"],
-    dependencies=[Depends(require_api_key)],
+    dependencies=[Depends(require_jwt)],
     responses=ERROR_RESPONSES,
 )
 
@@ -75,12 +76,14 @@ def _service() -> ChatService:
     summary="提问，返回回答与完整执行链路",
 )
 async def chat(
-    payload: ChatRequest, session: Session = Depends(get_db)
+    payload: ChatRequest,
+    session: Session = Depends(get_db),
+    auth: AuthContext = Depends(require_jwt),
 ) -> ChatResponse:
     return _service().ask(
         session,
         question=payload.question,
-        user_id=payload.user_id,
+        user_id=auth.user_id,  # 从 JWT token 获取，不信任请求体
         conversation_id=payload.conversation_id,
         trace_id=get_trace_id(),
         include_trace=payload.include_trace,
@@ -104,7 +107,9 @@ async def chat(
         **ERROR_RESPONSES,
     },
 )
-async def chat_stream(payload: ChatRequest, request: Request) -> StreamingResponse:
+async def chat_stream(
+    payload: ChatRequest, request: Request, auth: AuthContext = Depends(require_jwt)
+) -> StreamingResponse:
     """流式版 /chat。
 
     本地 7B 模型一轮对话串联 4 次 LLM 调用（改写/路由/校验/生成），耗时 20-40s。
@@ -127,7 +132,7 @@ async def chat_stream(payload: ChatRequest, request: Request) -> StreamingRespon
                 response = _service().ask_streaming(
                     session,
                     question=payload.question,
-                    user_id=payload.user_id,
+                    user_id=auth.user_id,  # 从 JWT token 获取
                     conversation_id=payload.conversation_id,
                     trace_id=trace_id,
                     include_trace=payload.include_trace,
@@ -222,12 +227,14 @@ async def chat_stream(payload: ChatRequest, request: Request) -> StreamingRespon
     summary="确认或拒绝执行写操作",
 )
 async def confirm_write(
-    payload: ConfirmWriteRequest, session: Session = Depends(get_db)
+    payload: ConfirmWriteRequest,
+    session: Session = Depends(get_db),
+    auth: AuthContext = Depends(require_jwt),
 ) -> ChatResponse:
     return _service().confirm_write(
         session,
         conversation_id=payload.conversation_id,
-        user_id=payload.user_id,
+        user_id=auth.user_id,  # 从 JWT token 获取
         confirmation_token=payload.confirmation_token,
         approved=payload.approved,
         trace_id=get_trace_id(),

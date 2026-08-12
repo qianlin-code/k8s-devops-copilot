@@ -4,8 +4,8 @@
   "request": null,
   "response": {
     "code": "UNAUTHORIZED",
-    "message": "Missing X-API-Key header",
-    "trace_id": "d0252431fb714ffa92c7230200e7e0db",
+    "message": "Missing Authorization header",
+    "trace_id": "722e04efd86047b2bb5176a3741b3226",
     "retryable": false,
     "details": {}
   }

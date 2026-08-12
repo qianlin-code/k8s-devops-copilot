@@ -16,8 +16,6 @@ export interface AgentStepTrace {
 export interface ChatRequest {
   /** 用户的自然语言问题 */
   question: string
-  /** 提问用户的账号 ID */
-  user_id: string
   /** 续接已有会话；留空则新建会话 */
   conversation_id?: null | string
   /** 是否在响应里返回完整执行链路 */
@@ -63,7 +61,6 @@ export interface CitationTrace {
 
 export interface ConfirmWriteRequest {
   conversation_id: string
-  user_id: string
   /** 来自 pending_write 的令牌 */
   confirmation_token: string
   /** false 表示用户拒绝执行 */
@@ -190,9 +187,22 @@ export interface IngestTextRequest {
   chunk_strategy?: null | string
 }
 
+export interface LoginRequest {
+  username: string
+  password: string
+}
+
+export interface LoginResponse {
+  access_token: string
+  token_type?: string
+  user_id: string
+  username: string
+  role: string
+  organization_id: string
+}
+
 export interface MarkSedimentationRequest {
   conversation_id: string
-  marked_by: string
   proposed_title?: null | string
 }
 
@@ -241,6 +251,19 @@ export interface ReadinessResponse {
   checks: DependencyCheck[]
 }
 
+export interface RegisterRequest {
+  username: string
+  password: string
+  organization_name: string
+}
+
+export interface RegisterResponse {
+  user_id: string
+  username: string
+  role: string
+  organization_id: string
+}
+
 export interface RetrievalStageTrace {
   /** 阶段名：query_rewrite/vector_search/bm25_search/rrf_fusion/rerank/relevance_filter */
   name: string
@@ -259,7 +282,6 @@ export interface RetrievalTrace {
 }
 
 export interface ReviewSedimentationRequest {
-  reviewer: string
   approved: boolean
   title_override?: null | string
   note?: null | string
@@ -367,6 +389,8 @@ export interface ToolCallTrace {
 }
 
 export const API_ENDPOINTS = {
+  login_api_v1_auth_login_post: { method: 'POST', path: '/api/v1/auth/login' },
+  register_api_v1_auth_register_post: { method: 'POST', path: '/api/v1/auth/register' },
   chat_api_v1_chat_post: { method: 'POST', path: '/api/v1/chat' },
   confirm_write_api_v1_chat_confirm_post: { method: 'POST', path: '/api/v1/chat/confirm' },
   chat_stream_api_v1_chat_stream_post: { method: 'POST', path: '/api/v1/chat/stream' },
@@ -383,5 +407,5 @@ export const API_ENDPOINTS = {
   list_tool_audits_api_v1_tool_audits_get: { method: 'GET', path: '/api/v1/tool-audits' },
 } as const
 
-export const API_KEY_HEADER = 'X-API-Key'
+export const AUTHORIZATION_HEADER = 'Authorization'
 export const TRACE_ID_HEADER = 'X-Trace-Id'

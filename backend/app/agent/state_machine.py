@@ -11,6 +11,7 @@ from app.agent.tools.base import ToolContext
 from app.agent.tools.executor import ToolExecutor, ToolInvocation
 from app.agent.tools.registry import ToolRegistry
 from app.config import get_settings
+from app.errors import ToolError
 from app.rag.reranker import RerankedChunk
 
 
@@ -20,6 +21,10 @@ class AgentOutcome(str, Enum):
     WRITE_CONFIRMATION_REQUIRED = "write_confirmation_required"
     INSUFFICIENT_INFORMATION = "insufficient_information"
     MAX_STEPS_EXCEEDED = "max_steps_exceeded"
+    # 状态机自身不会产出这个值，它由 ChatService.confirm_write 在用户拒绝时给出。
+    # 仍收进枚举：`ChatResponse.outcome` 是宽松 str，前端 OUTCOME_LABELS 却要
+    # 逐个硬编码映射，散落的字面量容易漏映射或拼错。
+    WRITE_REJECTED = "write_rejected"
 
 
 @dataclass(slots=True)
@@ -93,12 +98,17 @@ class AgentStateMachine:
         # node_seq 只是 trace 里的序号；round 才是受 max_steps 约束的决策轮次
         node_seq = 0
         rounds = 0
-        # 运行内幂等：失败的不重试，成功的不重复执行。
+        # 运行内幂等：失败的不重试，成功的不重复执行。签名只看每个工具声明的
+        # idempotency_fields（默认全部参数），排除了 reason 这类自由文本，
+        # 所以能直接按签名判重——不需要再叠加"按工具名整体去重"这层，那样会把
+        # restart_deployment(A) 和 restart_deployment(B) 这两个不同目标混为一谈，
+        # 静默跳过 B；该失败模式记录在 docs/评测与失败案例.md。
         failed_calls: dict[str, str] = {}
         executed_calls: set[str] = set()
-        # 写操作按工具名去重：LLM 每轮生成的 reason/request_id 文本都不同，
-        # 按完整参数签名会失效，导致确认执行后又弹一次确认卡片。
-        executed_write_tools: set[str] = set()
+        # 连续「路由给出的动作无法执行」的轮次数。7B 模型在填不出必填参数时会
+        # 一遍遍重复同一个无效调用（实测 6 轮里 4 轮都是纯路由+跳过，359s 后以
+        # max_steps_exceeded 收场）。再问一次路由不会有新信息，必须在代码层收敛。
+        unproductive_rounds = 0
 
         def record(node: str, detail: dict[str, Any]) -> None:
             nonlocal node_seq
@@ -121,13 +131,62 @@ class AgentStateMachine:
             record("execute_confirmed_write", _inv_detail(inv))
             prior.append(_prior_line(inv))
             signature = _call_signature(
-                confirmed_write.tool_name, confirmed_write.arguments
+                confirmed_write.tool_name, confirmed_write.arguments, self._registry
             )
             if inv.success:
                 executed_calls.add(signature)
-                executed_write_tools.add(confirmed_write.tool_name)
             else:
                 failed_calls[signature] = inv.error_code or "UNKNOWN"
+
+        def settle() -> AgentRunResult:
+            """收敛本轮：用现有证据做一次充分性校验，据结果回答或转追问。
+
+            用在「路由反复给出无法执行的动作」时。仍然过充分性校验而不是直接
+            回答 —— 反幻觉这道闸不能因为收敛就绕开。
+            """
+            verdict = self._checker.check(
+                question, format_knowledge(chunks), _format_invocations(invocations)
+            )
+            record(
+                "verify_sufficiency",
+                {
+                    "sufficient": verdict.sufficient,
+                    "reasoning": verdict.reasoning,
+                    "missing_information": verdict.missing_information,
+                },
+            )
+            if verdict.sufficient:
+                answer = self._answerer.answer(
+                    question,
+                    chunks,
+                    _format_invocations(invocations),
+                    context_messages=context_messages,
+                )
+                record("generate_answer", {"length": len(answer)})
+                return AgentRunResult(
+                    outcome=AgentOutcome.TOOL_ASSISTED_ANSWER
+                    if invocations
+                    else AgentOutcome.DIRECT_ANSWER,
+                    answer=answer,
+                    steps=steps,
+                    decisions=decisions,
+                    invocations=invocations,
+                    sufficiency=verdict,
+                    citations=chunks,
+                )
+            record("settle_insufficient", {"reason": "router_stuck"})
+            return AgentRunResult(
+                outcome=AgentOutcome.INSUFFICIENT_INFORMATION,
+                answer=self._answerer.insufficient_answer(
+                    verdict.missing_information,
+                    verdict.suggested_next_step or "补充缺失的信息后再试",
+                ),
+                steps=steps,
+                decisions=decisions,
+                invocations=invocations,
+                sufficiency=verdict,
+                citations=chunks,
+            )
 
         while rounds < limit:
             rounds += 1
@@ -174,15 +233,12 @@ class AgentStateMachine:
 
             if decision.action is RouteAction.CALL_TOOL:
                 signature = _call_signature(
-                    decision.tool_name or "", decision.tool_arguments
+                    decision.tool_name or "", decision.tool_arguments, self._registry
                 )
                 # 本轮已成功执行过的调用不再执行第二次。必须在写确认判断之前拦截，
                 # 否则确认执行后会再次弹出确认卡片，永远走不到回答。
                 tool_name = decision.tool_name or ""
-                already_done = signature in executed_calls or (
-                    tool_name in executed_write_tools
-                )
-                if already_done:
+                if signature in executed_calls:
                     record(
                         "skip_already_executed_call",
                         {"tool_name": tool_name, "signature": signature},
@@ -221,6 +277,35 @@ class AgentStateMachine:
                         citations=chunks,
                     )
 
+                if signature in failed_calls:
+                    # 同一个失败调用不再执行第二次，否则会白烧掉全部步数。
+                    # 必须在写确认判断之前拦截——否则确认执行失败（如
+                    # RESOURCE_NOT_FOUND）后，同一个写工具签名会先命中下面
+                    # 的"待确认写操作"分支，把失败包装成新的确认卡片再弹一次，
+                    # 永远走不到失败提示。
+                    unproductive_rounds += 1
+                    record(
+                        "skip_repeated_failed_call",
+                        {
+                            "tool_name": decision.tool_name,
+                            "signature": signature,
+                            "previous_error": failed_calls[signature],
+                            "unproductive_rounds": unproductive_rounds,
+                        },
+                    )
+                    prior.append(
+                        f"调用 {signature} 已失败过({failed_calls[signature]})，"
+                        "不要重复提交，改用其他工具或改为向用户追问。"
+                    )
+                    # 给一次换工具或改追问的机会，再重复就收敛。
+                    # 原来这里直接 continue，跳过充分性校验进下一轮路由——模型
+                    # 没有任何新信息，只会重复同一个无效调用，把 max_steps 全烧在
+                    # 「路由→跳过→路由」上（实测知识性问题 359s / 6 轮全耗尽，
+                    # 以 max_steps_exceeded 收场）。
+                    if unproductive_rounds >= 2:
+                        return settle()
+                    continue
+
                 pending = self._maybe_pending_write(decision)
                 if pending is not None:
                     record(
@@ -243,22 +328,6 @@ class AgentStateMachine:
                         citations=chunks,
                     )
 
-                if signature in failed_calls:
-                    # 同一个失败调用不再执行第二次，否则会白烧掉全部步数
-                    record(
-                        "skip_repeated_failed_call",
-                        {
-                            "tool_name": decision.tool_name,
-                            "signature": signature,
-                            "previous_error": failed_calls[signature],
-                        },
-                    )
-                    prior.append(
-                        f"调用 {signature} 已失败过({failed_calls[signature]})，"
-                        "不要重复提交，改用其他工具或改为向用户追问。"
-                    )
-                    continue
-
                 inv = self._executor.execute(
                     decision.tool_name or "", decision.tool_arguments, ctx
                 )
@@ -266,9 +335,10 @@ class AgentStateMachine:
                 record("execute_tool", _inv_detail(inv))
                 prior.append(_prior_line(inv))
                 if inv.success:
+                    # 真的执行了工具就是有产出，重置计数：否则一次成功调用之后
+                    # 偶发一次重复失败也会被算进"卡住"，提前收敛掉正常的多步链路
+                    unproductive_rounds = 0
                     executed_calls.add(signature)
-                    if inv.is_write:
-                        executed_write_tools.add(inv.tool_name)
                 else:
                     failed_calls[signature] = inv.error_code or "UNKNOWN"
 
@@ -347,6 +417,15 @@ class AgentStateMachine:
         tool = self._registry.get(name)
         if not tool.is_write:
             return None
+        # 参数合法性预校验：不校验的话，用户会先看到确认卡片、点了"确认执行"
+        # 之后才发现 TOOL_ARGS_INVALID——白白走完一轮用户交互才发现路由给的
+        # 参数根本不满足工具 schema。校验失败时返回 None，让调用方落到正常的
+        # execute_tool 分支，按已有的失败处理逻辑记录 failed_calls 并允许重试，
+        # 不需要另开一套错误处理路径。
+        try:
+            tool.parse_args(decision.tool_arguments)
+        except ToolError:
+            return None
         return PendingWriteAction(
             tool_name=name,
             arguments=dict(decision.tool_arguments),
@@ -367,9 +446,24 @@ def _inv_detail(inv: ToolInvocation) -> dict[str, Any]:
     }
 
 
-def _call_signature(tool_name: str, arguments: dict[str, Any]) -> str:
-    """写操作的 request_id 每轮可能不同，签名时剔除，避免绕过重复检测。"""
-    stable = {k: v for k, v in arguments.items() if k != "request_id"}
+def _call_signature(
+    tool_name: str, arguments: dict[str, Any], registry: ToolRegistry
+) -> str:
+    """构造判重签名。
+
+    优先用工具声明的 idempotency_fields（排除 reason 等自由文本，只看真正
+    决定操作身份的字段）；工具查不到（幻觉工具名）或未声明时，退化为
+    「除 request_id 外的全部参数」——request_id 本身每轮都会变，必须排除，
+    否则同一个操作会被误判成不同签名，绕过重复检测。
+    """
+    fields: tuple[str, ...] | None = None
+    if registry.has(tool_name):
+        args_schema = registry.get(tool_name).args_schema
+        fields = getattr(args_schema, "idempotency_fields", None)
+    if fields:
+        stable = {k: arguments.get(k) for k in fields}
+    else:
+        stable = {k: v for k, v in arguments.items() if k != "request_id"}
     return f"{tool_name}({json.dumps(stable, sort_keys=True, ensure_ascii=False)})"
 
 

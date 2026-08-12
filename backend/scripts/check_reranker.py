@@ -15,7 +15,7 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(ROOT))
 
-os.environ.setdefault("API_KEY", "check")
+os.environ.setdefault("JWT_SECRET_KEY", "check-only-jwt-secret-not-for-production")
 os.environ.setdefault("STARTUP_PROBE_EXTERNAL", "false")
 
 from app.config import get_settings  # noqa: E402
@@ -23,17 +23,17 @@ from app.errors import RerankerUnavailableError  # noqa: E402
 from app.rag.reranker import BGEReranker  # noqa: E402
 from app.rag.vector_store import ScoredChunk  # noqa: E402
 
-QUERY = "登录返回 403 是权限不足吗，怎么解决"
+QUERY = "Pod 一直是 Pending 是资源不足吗，怎么解决"
 
 # 故意打乱顺序：真正相关的排在后面，能重排上来才说明模型在工作
 CANDIDATES = [
-    "VPN 出口 IP 频繁变化会触发会话 IP 绑定校验，导致频繁掉线。",
-    "Token 过期需要重新登录获取新凭证，默认有效期 8 小时。",
-    "企业防火墙拦截出站端口会导致内网访问返回 504 Gateway Timeout。",
-    "连续 5 次密码错误会触发风控自动锁定，锁定时长 30 分钟。",
-    "账号 permission_level 为 restricted 时未被授予应用访问权限，"
-    "登录会返回 403 Forbidden，需要管理员提权到 standard 并刷新权限缓存。",
-    "订阅账期逾期未付款，系统会自动暂停服务，付款后 1 小时内恢复。",
+    "NetworkPolicy 默认拒绝入站流量时，需要显式声明 ingress 规则才能放行。",
+    "ImagePullBackOff 通常是镜像名称拼写错误或缺少 imagePullSecrets。",
+    "DNS 解析失败时需要检查 CoreDNS Pod 是否正常运行以及 resolv.conf 配置。",
+    "CrashLoopBackOff 是容器进程异常退出触发的反复重启，需查看上一次崩溃日志。",
+    "Pod 长期停留在 Pending 状态通常是集群 CPU 或内存资源不足导致调度器"
+    "无法为其找到合适节点，需要检查资源请求或为集群扩容。",
+    "PVC 一直是 Pending 状态可能是 StorageClass 配置错误或后端存储容量不足。",
 ]
 
 
@@ -88,7 +88,7 @@ def main() -> int:
         )
 
     top = ranked[0]
-    hit = "403" in top.chunk.text and "permission_level" in top.chunk.text
+    hit = "Pending" in top.chunk.text and "调度器" in top.chunk.text
     print("-" * 78)
     print(f"最相关片段被排到第 1 位: {'是' if hit else '否'}")
     print(f"该片段原本在第 {top.rank_before} 位，得分 {top.rerank_score:.4f}")

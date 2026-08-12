@@ -3,13 +3,12 @@
   "http_status": 422,
   "request": {
     "question": "hi",
-    "user_id": "u-1001",
     "rogue_field": 1
   },
   "response": {
     "code": "VALIDATION_FAILED",
     "message": "Request payload does not match the API contract",
-    "trace_id": "11f874d9be024f2ca9633c2b8b023c74",
+    "trace_id": "4796cfd5ca804e72bdae0b2919d5d799",
     "retryable": false,
     "details": {
       "violations": [

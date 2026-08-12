@@ -36,8 +36,11 @@ _STEP_LABELS = {
     "verify_sufficiency": "正在校验信息是否充分",
     "generate_answer": "正在生成回答",
     "skip_already_executed_call": "跳过已执行的调用",
-    "skip_failed_call": "跳过已失败的调用",
+    # 键名必须与 state_machine.py 里 record() 的节点名逐字一致，否则
+    # SSE 进度事件与 trace 会回退成英文节点名透给前端
+    "skip_repeated_failed_call": "跳过已失败的调用",
     "max_steps_exceeded": "已达最大步数，正在收尾",
+    "settle_insufficient": "多次尝试无果，正在归纳已有信息",
 }
 
 
@@ -220,9 +223,15 @@ class ChatService:
         # 就能执行别人会话里的写操作（重置缓存、创建工单）。
         conversation = self._load_owned_conversation(session, conversation_id, user_id)
 
-        pending, question = self._load_pending_write(session, conversation_id, confirmation_token)
+        pending, question, pending_message = self._load_pending_write(
+            session, conversation_id, confirmation_token
+        )
 
         if not approved:
+            # 标记拒绝要在这个分支内做，且在写返回消息之前：这样同一个 token
+            # 之后任何 approve=true 的请求都会在 _load_pending_write 里被
+            # 挡下，不会绕过用户已经做出的拒绝决定去执行写操作。
+            self._mark_pending_write_rejected(session, pending_message)
             answer = f"已取消该操作（{pending.description}），未对系统做任何修改。"
             session.add(
                 Message(
@@ -230,7 +239,10 @@ class ChatService:
                     role=MessageRole.ASSISTANT.value,
                     content=answer,
                     trace_id=trace_id,
-                    trace_payload={"outcome": "write_rejected", "tool": pending.tool_name},
+                    trace_payload={
+                        "outcome": AgentOutcome.WRITE_REJECTED.value,
+                        "tool": pending.tool_name,
+                    },
                 )
             )
             session.flush()
@@ -238,7 +250,7 @@ class ChatService:
             return ChatResponse(
                 conversation_id=conversation.id,
                 message_id=message.id,
-                outcome="write_rejected",
+                outcome=AgentOutcome.WRITE_REJECTED.value,
                 answer=answer,
                 pending_write=None,
                 trace=None,
@@ -390,10 +402,12 @@ class ChatService:
                 details={"conversation_id": conversation_id},
             )
         if conversation.user_id != user_id:
-            raise NonRetryableError(
-                "Conversation belongs to a different user",
-                code=ErrorCode.TOOL_PERMISSION_DENIED,
-                http_status=403,
+            # 与 HistoryService 一致地返回 404 而非 403：403 等于确认「这个 id
+            # 存在但不属于你」，方便枚举（见 docs/评测与失败案例.md）。同一份
+            # 「越权访问」语义在两个 service 里给不同状态码，前端还得兼容两种。
+            raise NotFoundError(
+                f"Conversation '{conversation_id}' not found",
+                details={"conversation_id": conversation_id},
             )
         return conversation
 
@@ -408,7 +422,7 @@ class ChatService:
 
     def _load_pending_write(
         self, session: Session, conversation_id: str, token: str
-    ) -> tuple[PendingWriteAction, str]:
+    ) -> tuple[PendingWriteAction, str, Message]:
         messages = list(
             session.scalars(
                 select(Message)
@@ -422,6 +436,17 @@ class ChatService:
             pending = payload.get("pending_write")
             if not pending or pending.get("confirmation_token") != token:
                 continue
+            # 只锁"已拒绝"这一个方向：用户明确拒绝后，同一个 token 不能再被
+            # approve=true 执行。反过来"重复 approve 同一个 token"必须继续
+            # 放行——这是幂等重放依赖的路径（前端确认请求超时后允许用户
+            # 再点一次，同一 request_id 会命中审计表重放而不是真的执行两次，
+            # 见 test_reconfirming_same_token_does_not_execute_write_twice）。
+            if pending.get("rejected"):
+                raise NonRetryableError(
+                    "This action has already been rejected and cannot be approved",
+                    code=ErrorCode.VALIDATION_FAILED,
+                    details={"conversation_id": conversation_id},
+                )
             question = next(
                 (
                     m.content
@@ -438,12 +463,22 @@ class ChatService:
                     reasoning=pending["reasoning"],
                 ),
                 question,
+                msg,
             )
         raise NonRetryableError(
             "Confirmation token is invalid or has expired",
             code=ErrorCode.VALIDATION_FAILED,
             details={"conversation_id": conversation_id},
         )
+
+    def _mark_pending_write_rejected(self, session: Session, message: Message) -> None:
+        """把 token 标记为已拒绝，此后任何 approve=true 的请求都必须被拒绝。"""
+        payload = dict(message.trace_payload or {})
+        pending = dict(payload.get("pending_write") or {})
+        pending["rejected"] = True
+        payload["pending_write"] = pending
+        message.trace_payload = payload
+        session.flush()
 
     def _latest_assistant(self, session: Session, conversation_id: str) -> Message:
         message = session.scalar(

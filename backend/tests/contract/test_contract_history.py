@@ -5,7 +5,7 @@ from app.schemas.history import (
     ConversationListResponse,
     ToolAuditListResponse,
 )
-from tests.conftest import API_HEADERS, USER_PARAMS
+from tests.conftest import API_HEADERS, auth_headers
 from tests.contract.test_contract_basics import assert_error_contract
 from tests.fakes import ScriptedLLMClient
 
@@ -16,7 +16,7 @@ def _turn(client: TestClient, llm: ScriptedLLMClient, question: str, cid: str | 
         {"sufficient": True, "reasoning": "片段命中"},
         f"针对「{question}」的回答内容。",
     )
-    payload = {"question": question, "user_id": "u-1001"}
+    payload = {"question": question}
     if cid:
         payload["conversation_id"] = cid
     resp = client.post("/api/v1/chat", headers=API_HEADERS, json=payload)
@@ -27,8 +27,8 @@ def _turn(client: TestClient, llm: ScriptedLLMClient, question: str, cid: str | 
 def test_conversation_list_matches_schema(
     client: TestClient, llm: ScriptedLLMClient, seeded_kb: str
 ) -> None:
-    _turn(client, llm, "403 怎么处理")
-    resp = client.get("/api/v1/conversations", headers=API_HEADERS, params=USER_PARAMS)
+    _turn(client, llm, "Pod Pending 怎么处理")
+    resp = client.get("/api/v1/conversations", headers=API_HEADERS)
     assert resp.status_code == 200
     body = ConversationListResponse.model_validate(resp.json())
     assert body.total == 1
@@ -38,21 +38,20 @@ def test_conversation_list_matches_schema(
 def test_conversation_list_filters_by_user(
     client: TestClient, llm: ScriptedLLMClient, seeded_kb: str
 ) -> None:
-    _turn(client, llm, "403 怎么处理")
-    resp = client.get(
-        "/api/v1/conversations", headers=API_HEADERS, params={"user_id": "u-9999"}
-    )
+    """不同用户身份现在由 JWT token 区分，而非请求参数。"""
+    _turn(client, llm, "Pod Pending 怎么处理")
+    other_user_headers = auth_headers("ops-9999")
+    resp = client.get("/api/v1/conversations", headers=other_user_headers)
     assert ConversationListResponse.model_validate(resp.json()).total == 0
 
 
 def test_conversation_detail_carries_trace(
     client: TestClient, llm: ScriptedLLMClient, seeded_kb: str
 ) -> None:
-    first = _turn(client, llm, "403 怎么处理")
+    first = _turn(client, llm, "Pod Pending 怎么处理")
     resp = client.get(
         f"/api/v1/conversations/{first['conversation_id']}",
         headers=API_HEADERS,
-        params=USER_PARAMS,
     )
     assert resp.status_code == 200
     body = ConversationDetailResponse.model_validate(resp.json())
@@ -66,11 +65,11 @@ def test_conversation_detail_carries_trace(
 def test_conversation_detail_can_omit_trace(
     client: TestClient, llm: ScriptedLLMClient, seeded_kb: str
 ) -> None:
-    first = _turn(client, llm, "403 怎么处理")
+    first = _turn(client, llm, "Pod Pending 怎么处理")
     resp = client.get(
         f"/api/v1/conversations/{first['conversation_id']}",
         headers=API_HEADERS,
-        params={**USER_PARAMS, "include_trace": "false"},
+        params={"include_trace": "false"},
     )
     body = ConversationDetailResponse.model_validate(resp.json())
     assert all(m.trace is None for m in body.messages)
@@ -85,7 +84,7 @@ def test_multi_turn_context_summarization(
     for i in range(2, 9):
         _turn(client, llm, f"第 {i} 个问题", cid)
 
-    llm.queue_summary("历史摘要：用户连续询问登录与权限相关问题。")
+    llm.queue_summary("历史摘要：用户连续询问 Pod 调度与重启相关问题。")
     llm.queue(
         {"action": "answer", "reasoning": "结合摘要可答", "confidence": 0.9},
         {"sufficient": True, "reasoning": "足够"},
@@ -94,7 +93,7 @@ def test_multi_turn_context_summarization(
     resp = client.post(
         "/api/v1/chat",
         headers=API_HEADERS,
-        json={"question": "第 9 个问题", "user_id": "u-1001", "conversation_id": cid},
+        json={"question": "第 9 个问题", "conversation_id": cid},
     )
     assert resp.status_code == 200, resp.text
     context = resp.json()["trace"]["context"]
@@ -106,7 +105,7 @@ def test_multi_turn_context_summarization(
 
 
 def test_conversation_detail_unknown_id(client: TestClient) -> None:
-    resp = client.get("/api/v1/conversations/missing-id", headers=API_HEADERS, params=USER_PARAMS)
+    resp = client.get("/api/v1/conversations/missing-id", headers=API_HEADERS)
     assert resp.status_code == 404
     assert assert_error_contract(resp.json()).code == "RESOURCE_NOT_FOUND"
 
@@ -118,24 +117,24 @@ def test_tool_audit_records_cache_hit(
         llm.queue(
             {
                 "action": "call_tool",
-                "reasoning": "查账号状态",
+                "reasoning": "查 Pod 状态",
                 "confidence": 0.9,
-                "tool_name": "get_account_status",
-                "tool_arguments": {"user_id": "u-1001"},
+                "tool_name": "get_pod_status",
+                "tool_arguments": {"namespace": "ops-demo", "name": "api-gateway-7f9c"},
             },
             {"sufficient": True, "reasoning": "已取得状态"},
-            "账号权限等级为 restricted。",
+            "该 Pod 当前处于 Pending 状态。",
         )
         client.post(
             "/api/v1/chat",
             headers=API_HEADERS,
-            json={"question": "查一下 u-1001 状态", "user_id": "u-1001"},
+            json={"question": "查一下 api-gateway-7f9c 状态"},
         )
 
     resp = client.get(
         "/api/v1/tool-audits",
         headers=API_HEADERS,
-        params={**USER_PARAMS, "tool_name": "get_account_status"},
+        params={"tool_name": "get_pod_status"},
     )
     assert resp.status_code == 200
     body = ToolAuditListResponse.model_validate(resp.json())
@@ -150,10 +149,10 @@ def test_tool_audit_filters_by_conversation(
     llm.queue(
         {
             "action": "call_tool",
-            "reasoning": "查账号",
+            "reasoning": "查 Pod",
             "confidence": 0.9,
-            "tool_name": "get_account_status",
-            "tool_arguments": {"user_id": "u-1001"},
+            "tool_name": "get_pod_status",
+            "tool_arguments": {"namespace": "ops-demo", "name": "api-gateway-7f9c"},
         },
         {"sufficient": True, "reasoning": "够了"},
         "回答。",
@@ -161,19 +160,19 @@ def test_tool_audit_filters_by_conversation(
     body = client.post(
         "/api/v1/chat",
         headers=API_HEADERS,
-        json={"question": "查账号", "user_id": "u-1001"},
+        json={"question": "查 Pod"},
     ).json()
 
     matched = client.get(
         "/api/v1/tool-audits",
         headers=API_HEADERS,
-        params={**USER_PARAMS, "conversation_id": body["conversation_id"]},
+        params={"conversation_id": body["conversation_id"]},
     ).json()
     assert ToolAuditListResponse.model_validate(matched).total == 1
 
     other = client.get(
         "/api/v1/tool-audits",
         headers=API_HEADERS,
-        params={**USER_PARAMS, "conversation_id": "some-other-id"},
+        params={"conversation_id": "some-other-id"},
     ).json()
     assert ToolAuditListResponse.model_validate(other).total == 0

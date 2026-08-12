@@ -8,30 +8,35 @@ import json
 import os
 import sys
 import time
-from pathlib import Path
 
 import httpx
 
-ROOT = Path(__file__).resolve().parent.parent
 BASE = os.environ.get("COPILOT_BASE", "http://localhost:8000")
 
 
-def _api_key() -> str:
-    env = ROOT / ".env"
-    if env.exists():
-        for line in env.read_text(encoding="utf-8").splitlines():
-            if line.startswith("API_KEY="):
-                return line.split("=", 1)[1].strip()
-    return "dev-local-api-key-change-me"
+def _login_headers() -> dict[str, str]:
+    username = os.environ.get("COPILOT_USER_USERNAME")
+    password = os.environ.get("COPILOT_USER_PASSWORD")
+    if not username or not password:
+        print("缺少 COPILOT_USER_USERNAME 或 COPILOT_USER_PASSWORD", file=sys.stderr)
+        raise SystemExit(2)
+    with httpx.Client(timeout=httpx.Timeout(10.0)) as client:
+        response = client.post(
+            f"{BASE}/api/v1/auth/login",
+            json={"username": username, "password": password},
+        )
+    if response.status_code != 200:
+        print(f"登录失败 HTTP {response.status_code}: {response.text[:400]}", file=sys.stderr)
+        raise SystemExit(1)
+    return {"Authorization": f"Bearer {response.json()['access_token']}"}
 
 
 def main() -> int:
     payload = {
-        "question": "账号 u-1001 登录提示 403 Forbidden 该怎么处理",
-        "user_id": "u-1001",
+        "question": "ops-demo 命名空间下 Pod 一直 Pending 该怎么排查？",
         "include_trace": True,
     }
-    headers = {"X-API-Key": _api_key(), "Accept": "text/event-stream"}
+    headers = {**_login_headers(), "Accept": "text/event-stream"}
 
     started = time.perf_counter()
     first_event_at: float | None = None

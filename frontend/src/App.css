@@ -97,24 +97,16 @@
   min-height: 0;
 }
 
-.settings {
-  display: flex;
-  gap: 12px;
-  align-items: flex-end;
-  padding: 12px 20px;
-  border-bottom: 1px solid var(--border);
-  background: var(--bg-panel);
-  flex-wrap: wrap;
-}
-
-.settings label {
+.current-user {
   display: flex;
   flex-direction: column;
-  gap: 4px;
-  font-size: 11px;
+  gap: 2px;
+  margin-bottom: 10px;
+  font-size: 12px;
+}
+
+.current-user small {
   color: var(--text-dim);
-  flex: 1;
-  min-width: 180px;
 }
 
 @media (max-width: 760px) {

@@ -2,18 +2,17 @@
   "endpoint": "chat/confirm",
   "http_status": 200,
   "request": {
-    "conversation_id": "964aa2ee-a926-477e-98c6-47aeedead2f9",
-    "user_id": "u-1001",
+    "conversation_id": "6af1f4ef-f42b-45f8-b89e-eb602cbaf7a2",
     "confirmation_token": "<token from pending_write>",
     "approved": false
   },
   "response": {
-    "conversation_id": "964aa2ee-a926-477e-98c6-47aeedead2f9",
+    "conversation_id": "6af1f4ef-f42b-45f8-b89e-eb602cbaf7a2",
     "message_id": 12,
     "outcome": "write_rejected",
-    "answer": "已取消该操作（创建人工工单，转交给后台工程师。当知识库无解、或需要管理员权限才能处理时使用。属于写操作，执行前需要用户确认。），未对系统做任何修改。",
+    "answer": "已取消该操作（创建告警事件工单，转交给后台工程师。当知识库无解、或需要集群管理员权限才能处理时使用。属于写操作，执行前需要用户确认。），未对系统做任何修改。",
     "pending_write": null,
     "trace": null,
-    "created_at": "2026-08-07T12:34:32.206606Z"
+    "created_at": "2026-08-11T05:46:48.192046Z"
   }
 }

@@ -87,8 +87,11 @@ def test_reranker_receives_contextual_text() -> None:
 
     reranker = BGEReranker("stub", use_fp16=False)
     reranker._model = FakeModel()  # 跳过真实模型加载
-    reranker.rerank("登录 403 什么原因", [_scored(SECTION_BODY, list(HEADING))], top_n=1)
+    result = reranker.rerank(
+        "登录 403 什么原因", [_scored(SECTION_BODY, list(HEADING))], top_n=1
+    )
 
     assert captured, "reranker 应把候选送进模型"
     _, passed_text = captured[0]
     assert "403" in passed_text, "Rerank 必须看到标题链，否则会误判不相关"
+    assert result[0].rerank_score == 0.5

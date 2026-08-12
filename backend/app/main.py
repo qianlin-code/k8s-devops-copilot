@@ -6,8 +6,8 @@ from contextlib import asynccontextmanager
 from fastapi import Depends, FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
-from app.api import routes_chat, routes_health, routes_history, routes_kb
-from app.auth import require_api_key
+from app.api import routes_auth, routes_chat, routes_health, routes_history, routes_kb
+from app.auth.dependencies import require_jwt
 from app.config import Environment, get_settings
 from app.exception_handlers import register_exception_handlers
 from app.middleware import TraceMiddleware
@@ -133,13 +133,14 @@ def create_app() -> FastAPI:
         allow_origins=get_settings().cors_allow_origins,
         allow_credentials=True,
         allow_methods=["GET", "POST", "DELETE", "OPTIONS"],
-        allow_headers=["Content-Type", "X-API-Key"],
+        allow_headers=["Authorization", "Content-Type"],
         expose_headers=["X-Trace-Id"],
     )
     register_exception_handlers(app)
 
     prefix = "/api/v1"
     app.include_router(routes_health.router, prefix=prefix)
+    app.include_router(routes_auth.router, prefix=prefix)
     app.include_router(routes_chat.router, prefix=prefix)
     app.include_router(routes_kb.router, prefix=prefix)
     app.include_router(routes_history.router, prefix=prefix)
@@ -149,7 +150,7 @@ def create_app() -> FastAPI:
         response_model=ReadinessResponse,
         tags=["health"],
         summary="依赖可用性明细",
-        dependencies=[Depends(require_api_key)],
+        dependencies=[Depends(require_jwt)],
     )
     async def readiness() -> ReadinessResponse:
         return ReadinessResponse(

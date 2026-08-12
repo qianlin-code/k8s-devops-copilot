@@ -2,14 +2,14 @@ from typing import Any
 
 from app.agent.tools.base import Tool, assert_write_contract
 from app.agent.tools.readonly_tools import (
-    GetAccountStatusTool,
-    ListOrdersTool,
-    ListTicketsTool,
+    GetPodStatusTool,
+    ListAlertsTool,
+    ListDeploymentsTool,
 )
 from app.agent.tools.write_tools import (
-    CreateTicketTool,
-    ResetPermissionCacheTool,
-    UpdateTicketStatusTool,
+    CreateAlertTool,
+    RestartDeploymentTool,
+    UpdateAlertStatusTool,
 )
 from app.errors import ErrorCode, ToolError
 
@@ -62,12 +62,12 @@ def get_tool_registry() -> ToolRegistry:
     if _registry is None:
         _registry = ToolRegistry(
             [
-                GetAccountStatusTool(),
-                ListOrdersTool(),
-                ListTicketsTool(),
-                ResetPermissionCacheTool(),
-                CreateTicketTool(),
-                UpdateTicketStatusTool(),
+                GetPodStatusTool(),
+                ListDeploymentsTool(),
+                ListAlertsTool(),
+                RestartDeploymentTool(),
+                CreateAlertTool(),
+                UpdateAlertStatusTool(),
             ]
         )
     return _registry

@@ -19,11 +19,13 @@ _REQUIRED_TABLES = {
     "conversations",
     "messages",
     "kb_documents",
-    "tickets",
-    "mock_accounts",
-    "mock_orders",
+    "incidents",
+    "mock_pods",
+    "mock_deployments",
     "tool_call_audits",
     "pending_sedimentations",
+    "users",
+    "organizations",
 }
 
 
@@ -102,13 +104,13 @@ def _check_database() -> str:
     if missing:
         raise RuntimeError(f"missing tables: {sorted(missing)}")
     settings = get_settings()
-    # 演示用的假账号/订单只在非生产环境灌入。生产库若恰好是全新的，
-    # 无条件跑这一步会把 u-1004(admin 权限)这类演示数据插进真实数据库。
+    # 演示用的假 Pod/Deployment 只在非生产环境灌入。生产库若恰好是全新的，
+    # 无条件跑这一步会把演示集群数据插进真实数据库。
     if settings.environment is Environment.PROD:
         return f"tables={len(Base.metadata.tables)} seeded=skipped(prod)"
     with session_scope() as session:
-        seeded = seed_mock_data(session)
-    return f"tables={len(Base.metadata.tables)} seeded={seeded}"
+        mock_seeded = seed_mock_data(session)
+    return f"tables={len(Base.metadata.tables)} mock={mock_seeded} users=explicit-seed-required"
 
 
 def _check_vector_store() -> str:

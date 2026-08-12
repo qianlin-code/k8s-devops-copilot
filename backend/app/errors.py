@@ -5,6 +5,7 @@ from typing import Any
 class ErrorCode(str, Enum):
     # 鉴权 / 输入 (4xx, 不可重试)
     UNAUTHORIZED = "UNAUTHORIZED"
+    FORBIDDEN = "FORBIDDEN"
     VALIDATION_FAILED = "VALIDATION_FAILED"
     INPUT_TOO_LONG = "INPUT_TOO_LONG"
     PROMPT_INJECTION_DETECTED = "PROMPT_INJECTION_DETECTED"
@@ -73,6 +74,11 @@ class NonRetryableError(AppError):
 class UnauthorizedError(NonRetryableError):
     code = ErrorCode.UNAUTHORIZED
     http_status = 401
+
+
+class ForbiddenError(NonRetryableError):
+    code = ErrorCode.FORBIDDEN
+    http_status = 403
 
 
 class NotFoundError(NonRetryableError):

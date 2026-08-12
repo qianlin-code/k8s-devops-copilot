@@ -128,6 +128,10 @@ class Retriever:
             search_query, fused, top_n, stages, enable_rerank
         )
 
+        # 关联召回：命中"处理步骤" chunk 时，连带召回同文档的"现象/根因"段
+        if reranked:
+            reranked = self._associated_recall(reranked, stages)
+
         # 只有真正经过 rerank 打分才做阈值过滤：降级路径的分数是 RRF 值，量纲不同
         if rerank_applied and reranked:
             threshold = (
@@ -250,6 +254,84 @@ class Retriever:
             )
         )
         return reranked, applied
+
+
+    def _associated_recall(
+        self, reranked: list[RerankedChunk], stages: list[RetrievalStage]
+    ) -> list[RerankedChunk]:
+        """关联召回：命中"处理步骤" chunk 时，连带召回同文档的其他段落。
+
+        K8s 文档结构"现象/根因/处理步骤"三段式，路由看到孤立的操作指令易误判。
+        补充同文档的"现象/根因"段，让路由能判断"操作步骤"是否匹配当前问题。
+        """
+        started = time.perf_counter()
+
+        # 收集所有标记为 is_procedural 的 chunk 的 document_id
+        procedural_docs = {
+            r.chunk.document_id
+            for r in reranked
+            if r.chunk.is_procedural and r.chunk.document_id
+        }
+
+        if not procedural_docs:
+            stages.append(
+                RetrievalStage(
+                    name="associated_recall",
+                    hit_count=0,
+                    elapsed_ms=_ms_since(started),
+                    note="no_procedural_chunks",
+                )
+            )
+            return reranked
+
+        # 召回这些文档的所有 chunk
+        associated: list[ScoredChunk] = []
+        for doc_id in procedural_docs:
+            try:
+                chunks = self._store.get_chunks_by_document(doc_id)
+                associated.extend(chunks)
+            except AppError:
+                continue  # 单个文档失败不阻塞整体
+
+        # 去重：已经在 reranked 里的不重复加
+        existing_ids = {r.chunk.chunk_id for r in reranked}
+        new_chunks = [c for c in associated if c.chunk_id not in existing_ids]
+
+        if not new_chunks:
+            stages.append(
+                RetrievalStage(
+                    name="associated_recall",
+                    hit_count=0,
+                    elapsed_ms=_ms_since(started),
+                    note=f"checked_docs={len(procedural_docs)} all_duplicates",
+                )
+            )
+            return reranked
+
+        # 包装成 RerankedChunk，score 使用 0.0（表示关联召回，非相似度排序）
+        # rank_before/rank_after 都填 999 表示"补充材料"
+        associated_reranked = [
+            RerankedChunk(
+                chunk=c,
+                rerank_score=0.0,
+                rank_before=999,
+                rank_after=999,
+            )
+            for c in new_chunks
+        ]
+
+        stages.append(
+            RetrievalStage(
+                name="associated_recall",
+                hit_count=len(associated_reranked),
+                elapsed_ms=_ms_since(started),
+                note=f"docs={len(procedural_docs)} added={len(associated_reranked)}",
+                top_chunk_ids=[c.chunk_id for c in new_chunks[:5]],
+            )
+        )
+
+        # 关联召回的 chunk 追加到结果末尾（保持原有排序）
+        return reranked + associated_reranked
 
 
 def _ms_since(started: float) -> int:

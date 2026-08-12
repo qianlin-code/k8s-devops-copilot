@@ -6,7 +6,7 @@ import { MessageList } from '@/components/chat/MessageList'
 import { useChat } from '@/hooks/useChat'
 import './ChatPage.css'
 
-export default function ChatPage({ userId }: { userId: string }) {
+export default function ChatPage() {
   const {
     turns,
     conversationId,
@@ -18,7 +18,7 @@ export default function ChatPage({ userId }: { userId: string }) {
     confirm,
     reset,
     hydrate,
-  } = useChat(userId)
+  } = useChat()
   const [draft, setDraft] = useState('')
   const [marking, setMarking] = useState(false)
   const [notice, setNotice] = useState<string | null>(null)
@@ -34,13 +34,13 @@ export default function ChatPage({ userId }: { userId: string }) {
     hydratedRef.current = routeConversationId
     setLoadError(null)
     api
-      .getConversation(routeConversationId, userId, true)
+      .getConversation(routeConversationId, true)
       .then(({ data }) => hydrate(data.conversation_id, data.messages))
       .catch((err) => {
         hydratedRef.current = null
         setLoadError(err instanceof ApiError ? `会话加载失败：${err.message}（${err.code}）` : String(err))
       })
-  }, [routeConversationId, userId, hydrate])
+  }, [routeConversationId, hydrate])
 
   const submit = () => {
     const text = draft.trim()
@@ -63,7 +63,6 @@ export default function ChatPage({ userId }: { userId: string }) {
     try {
       await api.markSedimentation({
         conversation_id: conversationId,
-        marked_by: userId,
       })
       setNotice('已提交到待审队列，需在知识库页面人工确认后才会写入知识库。')
     } catch (err) {
@@ -113,7 +112,7 @@ export default function ChatPage({ userId }: { userId: string }) {
           rows={3}
           value={draft}
           disabled={busy}
-          placeholder="描述遇到的问题，例如：账号 u-1001 登录提示 403 Forbidden 该怎么处理（Enter 发送，Shift+Enter 换行）"
+          placeholder="描述遇到的问题，例如：ops-demo 命名空间下的 Pod 一直是 Pending 状态该怎么排查（Enter 发送，Shift+Enter 换行）"
           onChange={(e) => setDraft(e.target.value)}
           onKeyDown={(e) => {
             if (e.key === 'Enter' && !e.shiftKey) {

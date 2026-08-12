@@ -30,7 +30,7 @@ class MessageRole(str, Enum):
     SYSTEM = "system"
 
 
-class TicketStatus(str, Enum):
+class IncidentStatus(str, Enum):
     OPEN = "open"
     IN_PROGRESS = "in_progress"
     RESOLVED = "resolved"
@@ -43,7 +43,36 @@ class SedimentationStatus(str, Enum):
     REJECTED = "rejected"
 
 
+class UserRole(str, Enum):
+    ADMIN = "admin"
+    USER = "user"
+
+
 AUTO_QUALITY_REVIEWER = "system:auto-quality"
+
+
+class Organization(Base):
+    """组织/租户。本阶段不做数据物理隔离，只是预留多租户字段。"""
+
+    __tablename__ = "organizations"
+
+    id: Mapped[str] = mapped_column(String(36), primary_key=True)
+    name: Mapped[str] = mapped_column(String(255), unique=True, index=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=_utcnow)
+
+
+class User(Base):
+    """用户账号。password_hash 存 bcrypt 摘要，不存明文。"""
+
+    __tablename__ = "users"
+
+    id: Mapped[str] = mapped_column(String(36), primary_key=True)
+    username: Mapped[str] = mapped_column(String(128), unique=True, index=True)
+    password_hash: Mapped[str] = mapped_column(String(128))
+    role: Mapped[str] = mapped_column(String(16), default=UserRole.USER.value)
+    organization_id: Mapped[str] = mapped_column(String(36), index=True)
+    is_active: Mapped[bool] = mapped_column(Boolean, default=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=_utcnow)
 
 
 class Conversation(Base):
@@ -95,16 +124,16 @@ class KBDocument(Base):
     created_at: Mapped[datetime] = mapped_column(DateTime, default=_utcnow)
 
 
-class Ticket(Base):
-    """模拟工单系统，写工具的落地对象。"""
+class Incident(Base):
+    """模拟告警事件工单，写工具的落地对象。"""
 
-    __tablename__ = "tickets"
+    __tablename__ = "incidents"
 
     id: Mapped[str] = mapped_column(String(36), primary_key=True)
-    user_id: Mapped[str] = mapped_column(String(128), index=True)
+    namespace: Mapped[str] = mapped_column(String(128), index=True)
     title: Mapped[str] = mapped_column(String(255))
     description: Mapped[str] = mapped_column(Text)
-    status: Mapped[str] = mapped_column(String(24), default=TicketStatus.OPEN.value)
+    status: Mapped[str] = mapped_column(String(24), default=IncidentStatus.OPEN.value)
     priority: Mapped[str] = mapped_column(String(16), default="medium")
     conversation_id: Mapped[str | None] = mapped_column(String(36), default=None)
     created_at: Mapped[datetime] = mapped_column(DateTime, default=_utcnow)
@@ -113,29 +142,34 @@ class Ticket(Base):
     )
 
 
-class MockAccount(Base):
-    """模拟账号系统，只读工具的查询对象。"""
+class MockPod(Base):
+    """模拟 Pod 状态，只读工具的查询对象。
 
-    __tablename__ = "mock_accounts"
+    复合主键 (namespace, name)：不同命名空间下可以有同名 Pod，
+    这与账号场景里 user_id 全局唯一不同，是 K8s 资源模型的真实约束。
+    """
 
-    user_id: Mapped[str] = mapped_column(String(128), primary_key=True)
-    email: Mapped[str] = mapped_column(String(255))
-    status: Mapped[str] = mapped_column(String(32))
-    locked_reason: Mapped[str | None] = mapped_column(String(255), default=None)
-    permission_level: Mapped[str] = mapped_column(String(32), default="standard")
-    last_login_at: Mapped[datetime | None] = mapped_column(DateTime, default=None)
-    cache_version: Mapped[int] = mapped_column(Integer, default=1)
+    __tablename__ = "mock_pods"
+
+    namespace: Mapped[str] = mapped_column(String(128), primary_key=True)
+    name: Mapped[str] = mapped_column(String(128), primary_key=True)
+    phase: Mapped[str] = mapped_column(String(32))
+    reason: Mapped[str | None] = mapped_column(String(255), default=None)
+    # Pending 状态的 Pod 尚未被调度到任何节点，必须允许为空，不能给假节点名
+    node_name: Mapped[str | None] = mapped_column(String(128), default=None)
+    restart_count: Mapped[int] = mapped_column(Integer, default=0)
+    last_transition_at: Mapped[datetime | None] = mapped_column(DateTime, default=None)
 
 
-class MockOrder(Base):
-    __tablename__ = "mock_orders"
+class MockDeployment(Base):
+    __tablename__ = "mock_deployments"
 
-    id: Mapped[str] = mapped_column(String(64), primary_key=True)
-    user_id: Mapped[str] = mapped_column(String(128), index=True)
-    product: Mapped[str] = mapped_column(String(255))
-    status: Mapped[str] = mapped_column(String(32))
-    amount: Mapped[float] = mapped_column(Float, default=0.0)
-    created_at: Mapped[datetime] = mapped_column(DateTime, default=_utcnow)
+    namespace: Mapped[str] = mapped_column(String(128), primary_key=True)
+    name: Mapped[str] = mapped_column(String(128), primary_key=True)
+    image: Mapped[str] = mapped_column(String(255))
+    replicas: Mapped[int] = mapped_column(Integer, default=1)
+    available_replicas: Mapped[int] = mapped_column(Integer, default=1)
+    updated_at: Mapped[datetime] = mapped_column(DateTime, default=_utcnow)
 
 
 class ToolCallAudit(Base):
@@ -143,7 +177,12 @@ class ToolCallAudit(Base):
 
     __tablename__ = "tool_call_audits"
     __table_args__ = (
-        UniqueConstraint("request_id", name="uq_tool_call_request_id"),
+        # 幂等键按会话隔离，不是全局唯一：`request_id` 由 LLM 生成，实测会出现
+        # "123456" 这类极易碰撞的值。全局唯一时，B 会话用了 A 会话已用过的
+        # request_id 会命中 A 的审计行并重放 A 的结果（跨会话串数据）。
+        UniqueConstraint(
+            "conversation_id", "request_id", name="uq_tool_call_conversation_request"
+        ),
         Index("ix_audit_tool_created", "tool_name", "created_at"),
     )
 

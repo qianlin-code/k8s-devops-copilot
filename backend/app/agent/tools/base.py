@@ -1,5 +1,5 @@
 from abc import ABC, abstractmethod
-from typing import Any, ClassVar, Generic, TypeVar
+from typing import Any, ClassVar, Generic, Optional, TypeVar
 
 from pydantic import BaseModel, ConfigDict, ValidationError
 from sqlalchemy.orm import Session
@@ -79,6 +79,13 @@ class WriteToolArgs(ToolArgs):
     """写操作强制携带 request_id，用于幂等去重。"""
 
     request_id: str
+    # 子类可覆盖：决定"是否是同一个操作目标"的字段名。默认 None 表示用全部
+    # 字段（除 request_id）参与去重签名。像 RestartDeploymentArgs.reason 这种
+    # 解释性自由文本应该被排除在外——否则 LLM 每轮换一种说法描述原因，
+    # 签名就会跟着变，导致同一个目标被误判成"新操作"，重复弹确认卡片；
+    # 反过来若粗暴地按工具名整体去重（不看参数），又会把 restart_deployment(A)
+    # 和 restart_deployment(B) 这两个不同目标误判成同一个操作，静默跳过 B。
+    idempotency_fields: ClassVar[Optional[tuple[str, ...]]] = None
 
 
 def assert_write_contract(tool: Tool) -> None:

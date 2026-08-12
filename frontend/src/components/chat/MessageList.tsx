@@ -26,9 +26,9 @@ const OUTCOME_LABELS: Record<string, { text: string; cls: string }> = {
 }
 
 const SAMPLE_QUESTIONS = [
-  '账号 u-1001 登录提示 403 Forbidden 该怎么处理',
-  '查一下 u-1001 的权限等级，登录一直提示 403',
-  '管理员已经提权了但还是 403，请帮我刷新权限缓存',
+  'ops-demo 命名空间下 api-gateway-7f9c 这个 Pod 一直是 Pending 状态',
+  '查一下 ops-demo 下 worker-queue 这个 Deployment 的副本状态',
+  '配置已经修好了，请帮我重启一下 ops-demo 下的 worker-queue',
 ]
 
 interface Props {
@@ -58,7 +58,7 @@ export function MessageList({
     return (
       <div className="messages empty">
         <div className="hint">
-          <h3>企业级智能客服 Copilot</h3>
+          <h3>K8s 智能运维 Copilot</h3>
           <p>先在知识库页面上传文档，然后在下方提问。每次回答都会附带完整执行链路。</p>
           <ul className="samples">
             {SAMPLE_QUESTIONS.map((q) => (

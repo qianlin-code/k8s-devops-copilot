@@ -6,8 +6,8 @@ from app.llm.client import LLMClient
 from app.storage.models import Message, MessageRole
 
 _SUMMARY_SYSTEM = (
-    "你是对话摘要器。把下面的客服对话压缩成要点摘要，"
-    "保留：用户身份信息、已确认的故障现象、已执行过的操作及结果、尚未解决的问题。"
+    "你是对话摘要器。把下面的运维排查对话压缩成要点摘要，"
+    "保留：涉及的命名空间/Pod/Deployment、已确认的故障现象、已执行过的操作及结果、尚未解决的问题。"
     "丢弃寒暄与重复内容。不要编造未出现的信息。控制在 300 字以内。"
 )
 

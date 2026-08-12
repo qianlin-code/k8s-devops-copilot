@@ -2,17 +2,16 @@
   "endpoint": "chat",
   "http_status": 200,
   "request": {
-    "question": "公司的年会安排在什么时候",
-    "user_id": "u-1001"
+    "question": "公司的年会安排在什么时候"
   },
   "response": {
-    "conversation_id": "40ffd856-5e59-403e-968e-eca6eb7da916",
+    "conversation_id": "e592f5a3-3599-42ca-88bb-31c63a5ccaa6",
     "message_id": 14,
     "outcome": "insufficient_information",
-    "answer": "抱歉，根据现有的知识库内容和系统数据，我无法准确回答这个问题。\n\n缺少以下关键信息：\n- 路由判定现有知识与工具均无法覆盖该问题\n\n建议：请说明具体的系统模块和错误码",
+    "answer": "抱歉，根据现有的知识库内容和系统数据，我无法准确回答这个问题。\n\n缺少以下关键信息：\n- 路由判定现有知识与工具均无法覆盖该问题\n\n建议：请说明具体的命名空间和资源名称",
     "pending_write": null,
     "trace": {
-      "trace_id": "973c2e3056a94bf284c918086a5ef440",
+      "trace_id": "fffbb6db7d434390902dd7ab14f1639c",
       "total_elapsed_ms": 3,
       "context": {
         "total_turns": 0,
@@ -45,8 +44,8 @@
             "hit_count": 2,
             "elapsed_ms": 0,
             "top_chunk_ids": [
-              "3986d24a-1d5a-48dd-a0fc-38d14800789b",
-              "8e8fcdd6-c0fb-4d71-8325-a51654b160a1"
+              "148fca6d-10f6-4b84-88d9-a2a4d1ad8756",
+              "5700c5de-b199-4004-a3b2-3e13d02d271d"
             ],
             "note": null
           },
@@ -62,8 +61,8 @@
             "hit_count": 2,
             "elapsed_ms": 0,
             "top_chunk_ids": [
-              "3986d24a-1d5a-48dd-a0fc-38d14800789b",
-              "8e8fcdd6-c0fb-4d71-8325-a51654b160a1"
+              "148fca6d-10f6-4b84-88d9-a2a4d1ad8756",
+              "5700c5de-b199-4004-a3b2-3e13d02d271d"
             ],
             "note": null
           },
@@ -72,17 +71,24 @@
             "hit_count": 2,
             "elapsed_ms": 0,
             "top_chunk_ids": [
-              "3986d24a-1d5a-48dd-a0fc-38d14800789b",
-              "8e8fcdd6-c0fb-4d71-8325-a51654b160a1"
+              "148fca6d-10f6-4b84-88d9-a2a4d1ad8756",
+              "5700c5de-b199-4004-a3b2-3e13d02d271d"
             ],
             "note": null
+          },
+          {
+            "name": "associated_recall",
+            "hit_count": 0,
+            "elapsed_ms": 0,
+            "top_chunk_ids": [],
+            "note": "no_procedural_chunks"
           },
           {
             "name": "relevance_filter",
             "hit_count": 0,
             "elapsed_ms": 0,
             "top_chunk_ids": [],
-            "note": "threshold=0.15 dropped=2"
+            "note": "threshold=0.12 dropped=2"
           }
         ],
         "citations": []
@@ -104,7 +110,7 @@
         "missing_information": [
           "路由判定现有知识与工具均无法覆盖该问题"
         ],
-        "suggested_next_step": "请说明具体的系统模块和错误码"
+        "suggested_next_step": "请说明具体的命名空间和资源名称"
       },
       "steps": [
         {
@@ -125,6 +131,6 @@
       },
       "agent_max_steps": 4
     },
-    "created_at": "2026-08-07T12:34:32.219251Z"
+    "created_at": "2026-08-11T05:46:48.201794Z"
   }
 }

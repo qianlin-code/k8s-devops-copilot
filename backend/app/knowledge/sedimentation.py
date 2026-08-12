@@ -88,6 +88,15 @@ class SedimentationService:
                 f"Conversation '{conversation_id}' not found",
                 details={"conversation_id": conversation_id},
             )
+        # 归属校验：`conversation_id` 是入口参数，少了这层任何持有 API Key 的人
+        # 都能把别人的会话推进待审队列——队列条目会完整带出原对话的 question/answer，
+        # 等于顺带泄露别人的对话内容。返回 404 而非 403，避免确认 id 存在（见
+        # 评测与失败案例文档记录的越权枚举风险）。
+        if conversation.user_id != marked_by:
+            raise NotFoundError(
+                f"Conversation '{conversation_id}' not found",
+                details={"conversation_id": conversation_id},
+            )
 
         question, answer = self._latest_exchange(session, conversation_id)
         existing = session.scalar(

@@ -3,18 +3,17 @@
   "http_status": 200,
   "request": {
     "question": "综合前面说的，我现在该做什么",
-    "user_id": "u-1001",
-    "conversation_id": "52665682-96ed-4e03-8452-9155fbf71593"
+    "conversation_id": "bd7ac488-d8d1-4c37-8849-08d3afba4ec1"
   },
   "response": {
-    "conversation_id": "52665682-96ed-4e03-8452-9155fbf71593",
+    "conversation_id": "bd7ac488-d8d1-4c37-8849-08d3afba4ec1",
     "message_id": 28,
     "outcome": "direct_answer",
-    "answer": "结合前面的排查过程：权限已提升且缓存已刷新，通常 1 分钟内生效[1]。",
+    "answer": "结合前面的排查过程：重启已触发，通常 1 分钟内 Pod 会恢复 Running[1]。",
     "pending_write": null,
     "trace": {
-      "trace_id": "fc058d827aa2483c9c20339df3e72fe0",
-      "total_elapsed_ms": 4,
+      "trace_id": "6ded69c1777f43d3b0f3b90d3118945a",
+      "total_elapsed_ms": 3,
       "context": {
         "total_turns": 4,
         "windowed_turns": 2,
@@ -46,8 +45,8 @@
             "hit_count": 2,
             "elapsed_ms": 0,
             "top_chunk_ids": [
-              "8e8fcdd6-c0fb-4d71-8325-a51654b160a1",
-              "3986d24a-1d5a-48dd-a0fc-38d14800789b"
+              "148fca6d-10f6-4b84-88d9-a2a4d1ad8756",
+              "5700c5de-b199-4004-a3b2-3e13d02d271d"
             ],
             "note": null
           },
@@ -63,8 +62,8 @@
             "hit_count": 2,
             "elapsed_ms": 0,
             "top_chunk_ids": [
-              "8e8fcdd6-c0fb-4d71-8325-a51654b160a1",
-              "3986d24a-1d5a-48dd-a0fc-38d14800789b"
+              "148fca6d-10f6-4b84-88d9-a2a4d1ad8756",
+              "5700c5de-b199-4004-a3b2-3e13d02d271d"
             ],
             "note": null
           },
@@ -73,17 +72,24 @@
             "hit_count": 2,
             "elapsed_ms": 0,
             "top_chunk_ids": [
-              "8e8fcdd6-c0fb-4d71-8325-a51654b160a1",
-              "3986d24a-1d5a-48dd-a0fc-38d14800789b"
+              "148fca6d-10f6-4b84-88d9-a2a4d1ad8756",
+              "5700c5de-b199-4004-a3b2-3e13d02d271d"
             ],
             "note": null
+          },
+          {
+            "name": "associated_recall",
+            "hit_count": 0,
+            "elapsed_ms": 0,
+            "top_chunk_ids": [],
+            "note": "no_procedural_chunks"
           },
           {
             "name": "relevance_filter",
             "hit_count": 0,
             "elapsed_ms": 0,
             "top_chunk_ids": [],
-            "note": "threshold=0.15 dropped=2"
+            "note": "threshold=0.12 dropped=2"
           }
         ],
         "citations": []
@@ -130,7 +136,7 @@
           "step": 3,
           "node": "generate_answer",
           "detail": {
-            "length": 36
+            "length": 44
           }
         }
       ],
@@ -140,6 +146,6 @@
       },
       "agent_max_steps": 4
     },
-    "created_at": "2026-08-07T12:34:32.314145Z"
+    "created_at": "2026-08-11T05:46:48.335002Z"
   }
 }

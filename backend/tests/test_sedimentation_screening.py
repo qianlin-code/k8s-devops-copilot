@@ -1,4 +1,4 @@
-"""沉淀自动初筛：去重与质量打分的三条路径。
+﻿"""沉淀自动初筛：去重与质量打分的三条路径。
 
 用替身覆盖 embedding/vector_store/quality_client，不依赖真实云端调用。
 """
@@ -12,7 +12,7 @@ from app.knowledge.ingest import KnowledgeIngestor
 from app.knowledge.sedimentation import SedimentationService
 from app.rag.vector_store import ScoredChunk
 from app.storage.models import AUTO_QUALITY_REVIEWER
-from tests.conftest import API_HEADERS
+from tests.conftest import ADMIN_HEADERS
 from tests.fakes import ScriptedLLMClient
 
 
@@ -56,8 +56,8 @@ def _make_conversation(client: TestClient, llm: ScriptedLLMClient) -> str:
     )
     resp = client.post(
         "/api/v1/chat",
-        headers=API_HEADERS,
-        json={"question": "u-1001 登录 403 怎么办", "user_id": "u-1001"},
+        headers=ADMIN_HEADERS,  # 审核操作需要 admin 权限
+        json={"question": "u-1001 登录 403 怎么办"},
     )
     assert resp.status_code == 200, resp.text
     return resp.json()["conversation_id"]
@@ -110,7 +110,7 @@ def test_high_quality_auto_approves(sedimentation_deps) -> None:
 
     session = factory()
     try:
-        entry = service.mark(session, conversation_id=conversation_id, marked_by="admin")
+        entry = service.mark(session, conversation_id=conversation_id, marked_by="admin-1")
         session.commit()
 
         assert entry.status == "approved"
@@ -128,7 +128,7 @@ def test_low_quality_stays_pending_for_human_review(sedimentation_deps) -> None:
 
     session = factory()
     try:
-        entry = service.mark(session, conversation_id=conversation_id, marked_by="admin")
+        entry = service.mark(session, conversation_id=conversation_id, marked_by="admin-1")
         session.commit()
 
         assert entry.status == "pending"
@@ -145,7 +145,7 @@ def test_sensitive_content_forces_pending_even_with_high_raw_score(sedimentation
 
     session = factory()
     try:
-        entry = service.mark(session, conversation_id=conversation_id, marked_by="admin")
+        entry = service.mark(session, conversation_id=conversation_id, marked_by="admin-1")
         session.commit()
 
         assert entry.status == "pending"
@@ -169,7 +169,7 @@ def test_duplicate_hit_skips_quality_scoring(sedimentation_deps) -> None:
 
     session = factory()
     try:
-        entry = service.mark(session, conversation_id=conversation_id, marked_by="admin")
+        entry = service.mark(session, conversation_id=conversation_id, marked_by="admin-1")
         session.commit()
 
         assert entry.status == "pending"
@@ -196,7 +196,7 @@ def test_similar_but_below_threshold_is_not_flagged_as_duplicate(sedimentation_d
 
     session = factory()
     try:
-        entry = service.mark(session, conversation_id=conversation_id, marked_by="admin")
+        entry = service.mark(session, conversation_id=conversation_id, marked_by="admin-1")
         session.commit()
 
         assert entry.duplicate_of_document_id is None
@@ -213,7 +213,7 @@ def test_quality_client_unavailable_degrades_to_manual_review(sedimentation_deps
 
     session = factory()
     try:
-        entry = service.mark(session, conversation_id=conversation_id, marked_by="admin")
+        entry = service.mark(session, conversation_id=conversation_id, marked_by="admin-1")
         session.commit()
 
         assert entry.status == "pending"

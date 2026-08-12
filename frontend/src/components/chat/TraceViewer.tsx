@@ -3,6 +3,8 @@ import { useState } from 'react'
 import type { ExecutionTrace } from '@/api/types'
 import './TraceViewer.css'
 
+// 键名必须覆盖 backend/app/agent/state_machine.py 里 record() 的全部节点名，
+// 漏一个就会在「执行链路」面板里显示英文原名
 const NODE_LABELS: Record<string, string> = {
   route: '路由决策',
   execute_tool: '执行工具',
@@ -10,7 +12,10 @@ const NODE_LABELS: Record<string, string> = {
   verify_sufficiency: '信息充分性校验',
   generate_answer: '生成回答',
   await_write_confirmation: '等待用户确认写操作',
+  skip_already_executed_call: '跳过已执行的调用',
+  skip_repeated_failed_call: '跳过已失败的调用',
   max_steps_exceeded: '达到最大步数上限',
+  settle_insufficient: '多次尝试无果，归纳已有信息',
 }
 
 const ACTION_LABELS: Record<string, string> = {
@@ -137,12 +142,31 @@ function StepDetail({ node, detail }: { node: string; detail: Record<string, unk
       </div>
     )
   }
+  if (node === 'skip_already_executed_call' || node === 'skip_repeated_failed_call') {
+    return (
+      <div className="step-detail">
+        <code>{String(detail.tool_name)}</code>
+        {detail.previous_error ? (
+          <span className="tag danger">上次失败：{String(detail.previous_error)}</span>
+        ) : (
+          <span className="tag ok">本轮已成功执行过</span>
+        )}
+      </div>
+    )
+  }
   if (node === 'max_steps_exceeded') {
     return (
       <div className="step-detail">
         <span className="tag warn">
           已用 {String(detail.rounds_used)} / 上限 {String(detail.limit)} 轮
         </span>
+      </div>
+    )
+  }
+  if (node === 'settle_insufficient') {
+    return (
+      <div className="step-detail">
+        <span className="tag warn">路由反复给出无法执行的动作，提前收敛</span>
       </div>
     )
   }

@@ -1,24 +1,66 @@
 {
   "endpoint": "tool/audits",
-  "http_status": 422,
+  "http_status": 200,
   "request": null,
   "response": {
-    "code": "VALIDATION_FAILED",
-    "message": "Request payload does not match the API contract",
-    "trace_id": "111df93c0bd84810ab3c689f8c7920e3",
-    "retryable": false,
-    "details": {
-      "violations": [
-        {
-          "type": "missing",
-          "loc": [
-            "query",
-            "user_id"
-          ],
-          "msg": "Field required",
-          "input": null
-        }
-      ]
-    }
+    "total": 4,
+    "items": [
+      {
+        "audit_id": 4,
+        "trace_id": "d314195bb2ac4f6783a259192551f593",
+        "conversation_id": "097d1a92-e0f4-4a87-99e0-d5b81d15be81",
+        "request_id": null,
+        "tool_name": "get_pod_status",
+        "is_write": false,
+        "success": false,
+        "cache_hit": false,
+        "idempotent_replay": false,
+        "error_code": "RESOURCE_NOT_FOUND",
+        "elapsed_ms": 0,
+        "created_at": "2026-08-11T05:46:48.222082Z"
+      },
+      {
+        "audit_id": 3,
+        "trace_id": "f8ebd0286abc4eeea8cde7bb97ff8263",
+        "conversation_id": "e5b57d29-88fc-4acd-9870-881286c7c470",
+        "request_id": null,
+        "tool_name": "get_pod_status",
+        "is_write": false,
+        "success": true,
+        "cache_hit": false,
+        "idempotent_replay": false,
+        "error_code": null,
+        "elapsed_ms": 0,
+        "created_at": "2026-08-11T05:46:48.210032Z"
+      },
+      {
+        "audit_id": 2,
+        "trace_id": "fc26a426cad648428320928f3e7e9e1c",
+        "conversation_id": "eb4c430c-2a29-4c0e-bd23-7ea50d4b616a",
+        "request_id": "req-example-0001",
+        "tool_name": "restart_deployment",
+        "is_write": true,
+        "success": true,
+        "cache_hit": false,
+        "idempotent_replay": false,
+        "error_code": null,
+        "elapsed_ms": 2,
+        "created_at": "2026-08-11T05:46:48.174586Z"
+      },
+      {
+        "audit_id": 1,
+        "trace_id": "fece7bbc8e9346e2815e5a7c5f032d4a",
+        "conversation_id": "27fbcdfd-dffe-4d0e-a717-5c81e238715c",
+        "request_id": null,
+        "tool_name": "get_pod_status",
+        "is_write": false,
+        "success": true,
+        "cache_hit": false,
+        "idempotent_replay": false,
+        "error_code": null,
+        "elapsed_ms": 0,
+        "created_at": "2026-08-11T05:46:48.150789Z"
+      }
+    ]
   }
 }

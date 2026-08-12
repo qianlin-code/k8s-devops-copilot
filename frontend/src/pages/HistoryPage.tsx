@@ -11,7 +11,7 @@ import type {
 import { TraceViewer } from '@/components/chat/TraceViewer'
 import './HistoryPage.css'
 
-export default function HistoryPage({ userId }: { userId: string }) {
+export default function HistoryPage() {
   const navigate = useNavigate()
   const [list, setList] = useState<ConversationListResponse | null>(null)
   const [detail, setDetail] = useState<ConversationDetailResponse | null>(null)
@@ -29,7 +29,7 @@ export default function HistoryPage({ userId }: { userId: string }) {
   useEffect(() => {
     let cancelled = false
     api
-      .listConversations({ user_id: userId, limit: 50 })
+      .listConversations({ limit: 50 })
       .then(({ data }) => {
         if (!cancelled) setList(data)
       })
@@ -39,7 +39,7 @@ export default function HistoryPage({ userId }: { userId: string }) {
     return () => {
       cancelled = true
     }
-  }, [userId])
+  }, [])
 
   const open = useCallback(
     async (id: string) => {
@@ -51,8 +51,8 @@ export default function HistoryPage({ userId }: { userId: string }) {
       setAudits(null)
       try {
         const [conversation, audit] = await Promise.all([
-          api.getConversation(id, userId, true),
-          api.listToolAudits({ user_id: userId, conversation_id: id, limit: 100 }),
+          api.getConversation(id, true),
+          api.listToolAudits({ conversation_id: id, limit: 100 }),
         ])
         if (latestRequest.current !== id) return // 已切到别的会话，丢弃
         setDetail(conversation.data)
@@ -61,7 +61,7 @@ export default function HistoryPage({ userId }: { userId: string }) {
         if (latestRequest.current === id) fail(err)
       }
     },
-    [userId],
+    [],
   )
 
   return (

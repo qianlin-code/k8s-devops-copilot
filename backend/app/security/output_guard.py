@@ -9,10 +9,13 @@ _LEAK_PATTERNS: tuple[re.Pattern[str], ...] = (
         r"\b(API_KEY|QWEN_API_KEY|OLLAMA_API_KEY|DATABASE_URL|QDRANT_PATH)\s*[=:]\s*\S+",
         re.IGNORECASE,
     ),
-    # 路径段允许空格("E:\Perfect Project\..."),但不跨行
+    # 路径段允许空格("E:\Perfect Project\..."),但不跨行。
+    # 文件名部分用 {0,60} 而非 {1,60}：dotfile（`/app/.env`）在扩展名前没有
+    # 任何字符，原来的 {1,60} 会整条漏过去。扩展名后再吃掉 `.example`/`-wal`
+    # 这类后缀，否则 `.env.example`、`app.sqlite-wal` 同样不被拦截。
     re.compile(
-        r"(?:[A-Za-z]:\\|/)(?:[^\\/\r\n]{1,60}[\\/]){1,8}[^\\/\r\n]{1,60}"
-        r"\.(?:py|db|env|toml|sqlite3?|log)"
+        r"(?:[A-Za-z]:\\|/)(?:[^\\/\r\n]{1,60}[\\/]){1,8}[^\\/\r\n]{0,60}"
+        r"\.(?:py|db|env|toml|sqlite3?|log)(?:[.-][A-Za-z0-9]{1,12})*"
     ),
     re.compile(r"\bBearer\s+[A-Za-z0-9._-]{16,}\b"),
 )

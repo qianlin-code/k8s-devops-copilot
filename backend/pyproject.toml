@@ -14,6 +14,8 @@ dependencies = [
     "rank-bm25==0.2.2",
     "tenacity==9.0.0",
     "python-multipart==0.0.20",
+    "bcrypt==5.0.0",
+    "PyJWT==2.13.0",
 ]
 
 [project.optional-dependencies]

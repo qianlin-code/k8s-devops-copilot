@@ -2,18 +2,17 @@
   "endpoint": "chat",
   "http_status": 200,
   "request": {
-    "question": "403 应该怎么排查",
-    "user_id": "u-1001"
+    "question": "Pod Pending 应该怎么排查"
   },
   "response": {
-    "conversation_id": "76279dda-c4bb-48a5-9fd9-b9c199149340",
+    "conversation_id": "40356d55-bd22-4638-9f41-c2cc504a7c5d",
     "message_id": 30,
     "outcome": "insufficient_information",
     "answer": "抱歉，根据现有的知识库内容和系统数据，我无法准确回答这个问题。\n\n缺少以下关键信息：\n- 路由判定现有知识与工具均无法覆盖该问题\n\n建议：补充更多信息或提交工单转人工",
     "pending_write": null,
     "trace": {
-      "trace_id": "87e0e41aaf0648e3af0b90291307e27a",
-      "total_elapsed_ms": 3,
+      "trace_id": "0684763caf414d6593b5f693ad4c9001",
+      "total_elapsed_ms": 2,
       "context": {
         "total_turns": 0,
         "windowed_turns": 0,
@@ -24,8 +23,8 @@
       },
       "retrieval": {
         "query_rewrite": {
-          "original": "403 应该怎么排查",
-          "rewritten": "403 应该怎么排查",
+          "original": "Pod Pending 应该怎么排查",
+          "rewritten": "Pod Pending 应该怎么排查",
           "applied": false,
           "keywords": [],
           "skip_reason": "disabled"
@@ -109,6 +108,6 @@
       },
       "agent_max_steps": 4
     },
-    "created_at": "2026-08-07T12:34:32.474559Z"
+    "created_at": "2026-08-11T05:46:51.676929Z"
   }
 }

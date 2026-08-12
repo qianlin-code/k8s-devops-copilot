@@ -26,7 +26,7 @@ export interface ChatProgress {
   history: string[]
 }
 
-export function useChat(userId: string) {
+export function useChat() {
   const [turns, setTurns] = useState<ChatTurn[]>([])
   const [conversationId, setConversationId] = useState<string | null>(null)
   const [busy, setBusy] = useState(false)
@@ -63,28 +63,37 @@ export function useChat(userId: string) {
     ])
   }, [])
 
-  const appendFailure = useCallback((err: unknown, seq: number) => {
-    if (seq !== turnSeq.current) return
-    if (err instanceof RequestAbortedError && !err.timedOut) {
-      // 用户主动取消：不当作失败留痕
-      return
-    }
-    const apiError = err instanceof ApiError ? err : null
-    if (apiError) setError(apiError)
-    setTurns((prev) => [
-      ...prev,
-      {
-        id: nextId(),
-        role: 'assistant',
-        failed: true,
-        content: apiError
-          ? `请求失败：${apiError.message}（${apiError.code}，trace ${apiError.traceId.slice(0, 12)}）`
-          : err instanceof RequestAbortedError
-            ? '请求超时，后端可能仍在处理。可稍后在历史记录中查看结果。'
-            : `请求失败：${String(err)}`,
-      },
-    ])
-  }, [])
+  const appendFailure = useCallback(
+    (err: unknown, seq: number, kind: 'ask' | 'write' = 'ask') => {
+      if (seq !== turnSeq.current) return
+      if (err instanceof RequestAbortedError && !err.timedOut) {
+        // 用户主动取消：不当作失败留痕
+        return
+      }
+      const apiError = err instanceof ApiError ? err : null
+      if (apiError) setError(apiError)
+      setTurns((prev) => [
+        ...prev,
+        {
+          id: nextId(),
+          role: 'assistant',
+          failed: true,
+          content: apiError
+            ? `请求失败：${apiError.message}（${apiError.code}，trace ${apiError.traceId.slice(0, 12)}）`
+            : err instanceof RequestAbortedError
+              ? // 写操作超时要说清两件事：一是后端很可能已经执行完（实测
+                // confirm 到过 186s，前端先超时了），二是再点一次确认是安全的
+                // —— 同一张卡片的 request_id 不变，会命中审计表的幂等重放，
+                // 不会把一次重启做成两次。含糊的提示会让用户不敢动也不知道结果。
+                kind === 'write'
+                ? '确认请求超时，写操作可能已在后端执行完成。可再点一次确认（同一操作幂等，不会重复执行），或到历史记录核对结果。'
+                : '请求超时，后端可能仍在处理。可稍后在历史记录中查看结果。'
+              : `请求失败：${String(err)}`,
+        },
+      ])
+    },
+    [],
+  )
 
   const send = useCallback(
     async (question: string) => {
@@ -105,7 +114,6 @@ export function useChat(userId: string) {
         const data = await api.chatStream(
           {
             question: text,
-            user_id: userId,
             conversation_id: conversationId ?? undefined,
             include_trace: true,
           },
@@ -129,16 +137,17 @@ export function useChat(userId: string) {
       } catch (err) {
         appendFailure(err, seq)
       } finally {
-        inFlight.current = false
-        abortRef.current = null
-        // 已被新回合取代时不要覆盖它的 busy/progress
+        // 同 confirm：已被新回合取代时不要覆盖它的 inFlight/busy/progress。
+        // reset/hydrate/新 send 都会自行重置 inFlight，跳过是安全的。
         if (seq === turnSeq.current) {
+          inFlight.current = false
+          abortRef.current = null
           setBusy(false)
           setProgress(null)
         }
       }
     },
-    [conversationId, userId, appendResponse, appendFailure],
+    [conversationId, appendResponse, appendFailure],
   )
 
   const cancel = useCallback(() => {
@@ -192,7 +201,6 @@ export function useChat(userId: string) {
       try {
         const { data } = await api.confirmWrite({
           conversation_id: conversationId,
-          user_id: userId,
           confirmation_token: token,
           approved,
           include_trace: true,
@@ -208,14 +216,20 @@ export function useChat(userId: string) {
         }
         appendResponse(data, seq)
       } catch (err) {
-        appendFailure(err, seq)
+        appendFailure(err, seq, 'write')
       } finally {
-        inFlight.current = false
-        setConfirmingToken(null)
-        if (seq === turnSeq.current) setBusy(false)
+        // 全部收尾都要校验 seq：本请求发出后用户若点了「新建会话」或发了新消息，
+        // turnSeq 已递增，新回合可能已经设置了自己的 confirmingToken/inFlight。
+        // 无条件清理会把新回合的状态擦掉，确认按钮被错误启用、可重复点击。
+        // reset/hydrate/新 send 都会自行把 inFlight 置回 false，这里跳过是安全的。
+        if (seq === turnSeq.current) {
+          inFlight.current = false
+          setConfirmingToken(null)
+          setBusy(false)
+        }
       }
     },
-    [conversationId, confirmingToken, userId, appendResponse, appendFailure],
+    [conversationId, confirmingToken, appendResponse, appendFailure],
   )
 
   const reset = useCallback(() => {

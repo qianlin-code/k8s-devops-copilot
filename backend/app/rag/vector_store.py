@@ -20,6 +20,7 @@ class ScoredChunk:
     heading_path: list[str]
     chunk_index: int
     score: float
+    is_procedural: bool = False
 
     def citation_label(self) -> str:
         # Markdown 的 H1 常与文档标题同名，去掉避免 "手册 / 手册 > 章节" 这种重复
@@ -109,6 +110,7 @@ class VectorStore:
                         "text": chunk.text,
                         "heading_path": chunk.heading_path,
                         "chunk_index": chunk.index,
+                        "is_procedural": chunk.is_procedural,
                     },
                 )
             )
@@ -183,6 +185,34 @@ class VectorStore:
     def known_document_ids(self) -> set[str]:
         return {c.document_id for c in self.iter_all_chunks() if c.document_id}
 
+    def get_chunks_by_document(self, document_id: str) -> list[ScoredChunk]:
+        """获取指定文档的所有 chunk（用于关联召回）。
+
+        score 字段统一填 0.0，因为这些是按文档召回而非相似度排序。
+        """
+        try:
+            response = self._client.scroll(
+                collection_name=self.collection,
+                scroll_filter=qm.Filter(
+                    must=[
+                        qm.FieldCondition(
+                            key="document_id", match=qm.MatchValue(value=document_id)
+                        )
+                    ]
+                ),
+                limit=100,  # 单个文档不会超过 100 个 chunk
+                with_payload=True,
+                with_vectors=False,
+            )
+            return [
+                _to_scored(point.id, point.payload or {}, score=0.0)
+                for point in response[0]
+            ]
+        except Exception as exc:
+            raise VectorStoreUnavailableError(
+                f"Qdrant scroll by document failed: {type(exc).__name__}"
+            ) from exc
+
     def count(self) -> int:
         try:
             return self._client.count(self.collection, exact=True).count
@@ -204,6 +234,7 @@ def _to_scored(point_id: Any, payload: dict[str, Any], score: float) -> ScoredCh
         heading_path=list(payload.get("heading_path") or []),
         chunk_index=int(payload.get("chunk_index", 0)),
         score=float(score),
+        is_procedural=bool(payload.get("is_procedural", False)),
     )
 
 

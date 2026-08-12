@@ -10,8 +10,9 @@ __pycache__/
 .env.local
 
 # 运行时数据
-backend/data/app.db
-backend/data/app.db-*
+# 用 app.db* 而非 app.db-*：要同时盖住 -wal/-shm 和迁移前的 .bak-* 快照，
+# 数据库备份绝不能进版本库
+backend/data/app.db*
 backend/data/probe.db
 backend/data/qdrant_storage/
 backend/*.log
@@ -19,12 +20,23 @@ backend/e2e_out.txt
 backend/_smoke.py
 backend/eval_ragas_*.json
 backend/eval_tool_routing.json
+backend/.coverage
+backend/.pytest_cache/
+backend/eval-*.json
+backend/eval-*/
+backend/acceptance-evidence/
+# Nested evidence directories created when acceptance commands are run from a subdirectory.
+# Keep the formal evidence path above; these are local runtime artifacts only.
+backend/backend/
+frontend/backend/
+backend_pytest.log
 
 # Node
 node_modules/
 dist/
 .vite/
 frontend/tsconfig.tsbuildinfo
+frontend/*.log
 
 # Playwright
 frontend/test-results/

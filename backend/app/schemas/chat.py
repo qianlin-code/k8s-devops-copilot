@@ -19,10 +19,16 @@ class PendingWriteActionSchema(StrictBaseModel):
 
 
 class ChatRequest(StrictBaseModel):
+    # question 的长度上限故意不在这里加：业务层 input_guard.py 按
+    # settings.max_input_length 校验并返回统一错误码 INPUT_TOO_LONG，
+    # 若 schema 层也加 max_length，会被 Pydantic 提前拦截成标准 422 校验错误，
+    # 绕过业务层的错误码，破坏契约（见 test_input_too_long_rejected）。
     question: str = Field(min_length=1, description="用户的自然语言问题")
-    user_id: str = Field(min_length=1, description="提问用户的账号 ID")
+    # user_id 已从 JWT token 的 sub claim 获取，不再接受客户端传入
     conversation_id: Optional[str] = Field(
-        default=None, description="续接已有会话；留空则新建会话"
+        default=None,
+        max_length=36,
+        description="续接已有会话；留空则新建会话",
     )
     include_trace: bool = Field(
         default=True, description="是否在响应里返回完整执行链路"
@@ -43,8 +49,8 @@ class ChatResponse(StrictBaseModel):
 
 
 class ConfirmWriteRequest(StrictBaseModel):
-    conversation_id: str
-    user_id: str
+    conversation_id: str = Field(max_length=36)
+    # user_id 已从 JWT token 的 sub claim 获取，不再接受客户端传入
     confirmation_token: str = Field(description="来自 pending_write 的令牌")
     approved: bool = Field(description="false 表示用户拒绝执行")
     include_trace: bool = True
