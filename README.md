@@ -89,7 +89,7 @@ flowchart LR
 
 同一历史运行还记录知识路由 86.7%、工具路由 100%、faithfulness 0.718、answer relevancy 0.691。
 
-这些是旧配置下的历史基线，不代表当前提交已经通过验收。当前脏工作树候选已用 DeepSeek V4 Pro + BGE-M3 + BGE Reranker 完成固定 39 条严格门禁 `39/39` 和人工证据复核；q35 字段约束提示已按生产 Schema 确定性修复并通过 Python 3.11 契约 `70 passed`、全量 `290 passed`，Qwen-Max 正式复裁仅保留为参考。最终提交干净克隆、远端 CI 和 Release 仍未完成。实验条件、历史分歧与最新结果见 [评测与失败案例](docs/评测与失败案例.md)。
+这些是旧配置下的历史基线，不代表项目已经发布。签名实现候选 `376e38f` 已用 DeepSeek V4 Pro + BGE-M3 + BGE Reranker 完成固定 39 条严格门禁 `39/39` 和人工证据复核，并在独立干净克隆中通过 Python 3.11 全量 `296 passed`、契约 `70 passed`、前端 typecheck/build、整仓密钥扫描和 npm audit（0 vulnerabilities）；Qwen-Max 正式复裁仅保留为参考。Docker 最终候选复验、远端 CI、演示材料和 Release 仍未完成。实验条件、历史分歧与最新结果见 [评测与失败案例](docs/评测与失败案例.md)。
 
 ## 技术栈
 
