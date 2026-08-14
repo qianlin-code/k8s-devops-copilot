@@ -6,6 +6,8 @@
 
 ![核心流程演示](docs/assets/demo.gif)
 
+[GitHub 仓库](https://github.com/qianlin-code/k8s-devops-copilot) · [GitHub Actions](https://github.com/qianlin-code/k8s-devops-copilot/actions/runs/31821164169) · [v1.0.0 Release](https://github.com/qianlin-code/k8s-devops-copilot/releases/tag/v1.0.0)
+
 项目目录沿用旧名称“企业级智能客服 Copilot”以保留 Git 历史，对外统一使用当前名称。
 
 ## 为什么做这个项目
@@ -91,7 +93,7 @@ flowchart LR
 
 同一历史运行还记录知识路由 86.7%、工具路由 100%、faithfulness 0.718、answer relevancy 0.691。
 
-这些是旧配置下的历史基线，不代表项目已经发布。签名实现候选 `a65080ab`（tree `33f85ce3`）已用 DeepSeek V4 Pro + BGE-M3 + BGE Reranker 完成固定 39 条严格门禁 `39/39` 和人工证据复核，在独立干净克隆中通过 Python 3.11 全量 `298 passed`、契约 `70 passed`、前端 typecheck/build、密钥扫描和 npm audit（0 vulnerabilities），并完成 DeepSeek Docker 后端主链路、Compose 双容器健康及重启持久化复验。复用同一候选镜像和卷的无付费模型补证又直接在 Compose frontend `15191` 通过路由/权限 Playwright `3/3`、真实管理员知识审核 `1/1` 和最终状态 trace `1/1`；拒绝后知识库、Qdrant 与 BM25 完全不变，批准后新增文档可经生产 Retriever 最终过滤命中。随后修正数学上不可达的旧 hard-MRR 差值合同并完成无付费 Docker 复验：完整链路 Hit@5 `1.0`、MRR `0.944444`、hard MRR `0.931373`、hard Hit@3 `1.0`，真实 Rerank 无 fallback，修正后的八项检索门禁全部通过。最后在同一 Compose frontend `15191` 以唯一一次 DeepSeek V4 Pro 顶层问题完成真实知识问答 Playwright `1/1`：混合检索和真实 Rerank 生效、生成状态 verified、9 个引用命中原始语料“Pod 停滞在 Pending 状态”，历史页面重开后回答、trace 与引用保持一致，知识库/vector/BM25 前后不变。历史 `hard_mrr_improvement=0.044117647 < 0.15` 原值保留；旧合同要求 hard MRR 达到 `1.037255`，超过理论上限 `1.0`，因此合同修正不是降低质量要求。发布演示 GIF 已用本地 Ollama `qwen2.5:7b` 实际 Compose 流程生成并完成脱敏复核；本地完整链路、Docker 与演示材料验收已通过。远端 CI、tag 与 Release 仍未验证，项目保持“未验证/未发布”。Qwen-Max 正式复裁仅保留为参考，实验条件、历史分歧与最新结果见 [评测与失败案例](docs/评测与失败案例.md)。
+这些是旧配置下的历史基线，不代表当前发布指标。签名实现候选 `a65080ab`（tree `33f85ce3`）已用 DeepSeek V4 Pro + BGE-M3 + BGE Reranker 完成固定 39 条严格门禁 `39/39` 和人工证据复核，在独立干净克隆中通过 Python 3.11 全量 `298 passed`、契约 `70 passed`、前端 typecheck/build、密钥扫描和 npm audit（0 vulnerabilities），并完成 DeepSeek Docker 后端主链路、Compose 双容器健康及重启持久化复验。复用同一候选镜像和卷的无付费模型补证又直接在 Compose frontend `15191` 通过路由/权限 Playwright `3/3`、真实管理员知识审核 `1/1` 和最终状态 trace `1/1`；拒绝后知识库、Qdrant 与 BM25 完全不变，批准后新增文档可经生产 Retriever 最终过滤命中。随后修正数学上不可达的旧 hard-MRR 差值合同并完成无付费 Docker 复验：完整链路 Hit@5 `1.0`、MRR `0.944444`、hard MRR `0.931373`、hard Hit@3 `1.0`，真实 Rerank 无 fallback，修正后的八项检索门禁全部通过。最后在同一 Compose frontend `15191` 以唯一一次 DeepSeek V4 Pro 顶层问题完成真实知识问答 Playwright `1/1`：混合检索和真实 Rerank 生效、生成状态 verified、9 个引用命中原始语料“Pod 停滞在 Pending 状态”，历史页面重开后回答、trace 与引用保持一致，知识库/vector/BM25 前后不变。历史 `hard_mrr_improvement=0.044117647 < 0.15` 原值保留；旧合同要求 hard MRR 达到 `1.037255`，超过理论上限 `1.0`，因此合同修正不是降低质量要求。发布演示 GIF 已用本地 Ollama `qwen2.5:7b` 实际 Compose 流程生成并完成脱敏复核；本地完整链路、Docker 与演示材料验收已通过。公开仓库首轮 GitHub Actions 的 Python 3.11 后端与 Node 20 前端任务均已通过，workflow 无需修改；签名 tag 与 Release 页面按上方链接完成最终发布。Qwen-Max 正式复裁仅保留为参考，实验条件、历史分歧与最新结果见 [评测与失败案例](docs/评测与失败案例.md)。
 
 ## 技术栈
 
@@ -223,7 +225,7 @@ npm.cmd run build
 - embedded Qdrant 和单机 SQLite 面向本地作品演示，不是高可用生产架构。
 - 本地 `qwen2.5:7b` 仅作为显式离线兼容模式，仍可能过度调用工具、过度拒答或证据选择失败；失败案例公开保留。
 - Docker/Ollama 需要额外的本机服务与模型，属于可选真实验收路径，不属于干净克隆的离线 CI；仓库内 GIF 是本地演示证据，不等同公网生产部署。
-- 本地发布候选 commit 已完成离线干净克隆复测和独立克隆中的隔离 Docker 完整链路验收，包括 Compose frontend `15191` 的真实知识问答；远端 GitHub Actions、生产部署、tag 与 v1.0 Release 仍未验证，不能据此宣称正式发布。
+- 发布候选已完成离线干净克隆、隔离 Docker 完整链路和远端 GitHub Actions 验收；项目没有公网生产部署，发布状态与资产以 `v1.0.0` Release 页面为准。
 
 ## 文档导航
 
