@@ -7,6 +7,7 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from app.agent.context_manager import ContextBundle, ConversationContextManager
+from app.agent.answerer import VerifiedAnswerResult
 from app.agent.state_machine import (
     AgentOutcome,
     AgentRunResult,
@@ -17,6 +18,7 @@ from app.agent.state_machine import (
 from app.agent.tools.base import ToolContext
 from app.config import get_settings
 from app.errors import ErrorCode, NonRetryableError, NotFoundError
+from app.rag.query_policy import min_rerank_score_for_query
 from app.rag.retriever import RetrievalResult, Retriever
 from app.schemas.base import to_utc_iso
 from app.schemas.chat import ChatResponse, PendingWriteActionSchema
@@ -33,6 +35,7 @@ _STEP_LABELS = {
     "execute_tool": "正在调用工具查询系统状态",
     "execute_confirmed_write": "正在执行已确认的写操作",
     "await_write_confirmation": "等待确认写操作",
+    "request_write_details": "等待补充写操作所需信息",
     "verify_sufficiency": "正在校验信息是否充分",
     "generate_answer": "正在生成回答",
     "skip_already_executed_call": "跳过已执行的调用",
@@ -84,9 +87,7 @@ class ChatService:
             session, conversation_id, user_id, guarded.text, trace_id
         )
 
-        retrieval = self._retriever.retrieve(
-            guarded.text, history_snippet=context.history_snippet or None
-        )
+        retrieval = self._retrieve(guarded.text, context)
         result = self._agent.run(
             guarded.text,
             retrieval.chunks,
@@ -99,7 +100,7 @@ class ChatService:
             context_messages=context.messages or None,
         )
 
-        sanitized = sanitize_output(result.answer)
+        sanitized = self._sanitize_agent_result(result)
         turn = _Turn(
             conversation=conversation,
             context=context,
@@ -162,9 +163,7 @@ class ChatService:
         )
 
         send("retrieving", "正在检索知识库")
-        retrieval = self._retriever.retrieve(
-            guarded.text, history_snippet=context.history_snippet or None
-        )
+        retrieval = self._retrieve(guarded.text, context)
         send(
             "retrieved",
             f"检索到 {len(retrieval.chunks)} 条相关片段",
@@ -193,7 +192,7 @@ class ChatService:
             on_step=on_step,
         )
 
-        sanitized = sanitize_output(result.answer)
+        sanitized = self._sanitize_agent_result(result)
         turn = _Turn(
             conversation=conversation,
             context=context,
@@ -205,6 +204,18 @@ class ChatService:
         )
         return self._persist_and_render(
             session, turn, sanitized.text, trace_id, include_trace
+        )
+
+    def _retrieve(self, question: str, context: ContextBundle) -> RetrievalResult:
+        settings = get_settings()
+        return self._retriever.retrieve(
+            question,
+            history_snippet=context.history_snippet or None,
+            min_score=min_rerank_score_for_query(
+                question,
+                production_score=settings.min_rerank_score,
+                knowledge_score=settings.knowledge_min_rerank_score,
+            ),
         )
 
     def confirm_write(
@@ -274,7 +285,7 @@ class ChatService:
             context_messages=context.messages or None,
             confirmed_write=pending,
         )
-        sanitized = sanitize_output(result.answer)
+        sanitized = self._sanitize_agent_result(result)
         turn = _Turn(
             conversation=conversation,
             context=context,
@@ -287,6 +298,30 @@ class ChatService:
         return self._persist_and_render(
             session, turn, sanitized.text, trace_id, include_trace
         )
+
+    @staticmethod
+    def _sanitize_agent_result(result: AgentRunResult):
+        sanitized = sanitize_output(result.answer)
+        if sanitized.text == result.answer or result.verified_answer is None:
+            return sanitized
+
+        fallback_text = (
+            "抱歉，回答证据包含不能安全展示的内容，因此无法返回该回答。\n\n"
+            "建议：请移除敏感信息后重试，或提交工单转人工处理。"
+        )
+        result.answer = fallback_text
+        result.outcome = AgentOutcome.INSUFFICIENT_INFORMATION
+        result.verified_answer = VerifiedAnswerResult(
+            text=fallback_text,
+            status="fallback",
+            attempts=result.verified_answer.attempts,
+            fallback_reason="output_redacted",
+        )
+        fallback = sanitize_output(fallback_text)
+        fallback.redactions = sorted(
+            set([*sanitized.redactions, *fallback.redactions])
+        )
+        return fallback
 
     def _persist_and_render(
         self,

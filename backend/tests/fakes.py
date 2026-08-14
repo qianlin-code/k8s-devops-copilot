@@ -70,7 +70,7 @@ class ScriptedLLMClient:
         self._queues["sufficiency"].extend(items)
         return self
 
-    def queue_answer(self, *items: str) -> "ScriptedLLMClient":
+    def queue_answer(self, *items: Any) -> "ScriptedLLMClient":
         self._queues["answer"].extend(items)
         return self
 
@@ -108,7 +108,28 @@ class ScriptedLLMClient:
         return self._default(intent)
 
     def structured(self, messages: list[dict[str, str]], schema: type, **_: Any) -> Any:
-        return schema.model_validate_json(self.chat(messages))
+        if schema.__name__ != "VerifiedAnswerPlan":
+            return schema.model_validate_json(self.chat(messages))
+
+        self.calls.append("answer")
+        queue = self._queues["answer"]
+        scripted = queue.pop(0) if queue else None
+        if isinstance(scripted, dict):
+            return schema.model_validate(scripted)
+
+        prompt = messages[-1].get("content", "")
+        atoms = _evidence_atoms(prompt)
+        if isinstance(scripted, str):
+            matching = []
+            for source_id, body in atoms:
+                if scripted in body:
+                    matching.append(source_id)
+            if matching:
+                return schema.model_validate({"selected_atom_ids": matching[:16]})
+
+        return schema.model_validate(
+            {"selected_atom_ids": [source_id for source_id, _ in atoms[:1]]}
+        )
 
     def _classify(self, messages: list[dict[str, str]]) -> str:
         system = messages[0].get("content", "") if messages else ""
@@ -141,6 +162,20 @@ class ScriptedLLMClient:
         if intent == "rewrite":
             return json.dumps({"rewritten": "替身改写查询", "keywords": []}, ensure_ascii=False)
         return "替身默认回答。"
+
+
+def _evidence_atoms(prompt: str) -> list[tuple[str, str]]:
+    source_text = prompt.split("[可选择证据原子]", 1)[-1].split("[用户问题]", 1)[0]
+    sources: list[tuple[str, str]] = []
+    for block in source_text.strip().split("\n\n"):
+        lines = block.splitlines()
+        if not lines or not lines[0].startswith("[") or "]" not in lines[0]:
+            continue
+        source_id = lines[0].split("]", 1)[0][1:]
+        body = "\n".join(lines[1:]).strip()
+        if body:
+            sources.append((source_id, body))
+    return sources
 
 
 class KeywordReranker:

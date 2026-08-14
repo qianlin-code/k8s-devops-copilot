@@ -26,8 +26,11 @@ DOCS_DIR = ROOT / "data" / "docs_k8s"
 
 CANDIDATE_K = 20
 TOP_N = 5
+FIXED_CASE_IDS = tuple(
+    [f"q{i:02d}" for i in range(1, 36)] + ["q35b"] + [f"q{i:02d}" for i in range(36, 39)]
+)
 # 待评估的候选阈值，覆盖当前生产值 0.15 两侧
-THRESHOLDS = [0.0, 0.05, 0.08, 0.10, 0.12, 0.15, 0.18, 0.20, 0.25, 0.30]
+THRESHOLDS = [0.0, 0.03, 0.05, 0.08, 0.10, 0.12, 0.15, 0.18, 0.20, 0.25, 0.30]
 CURRENT_PRODUCTION_THRESHOLD = 0.12
 
 
@@ -65,6 +68,19 @@ def _document_manifest(docs: list[Path]) -> list[dict[str, str]]:
         }
         for doc in docs
     ]
+
+
+def _load_fixed_cases(path: Path = EVAL_SET) -> list[dict]:
+    """Load the release evaluation set and fail closed on accidental drift."""
+    payload = json.loads(path.read_text(encoding="utf-8"))
+    cases = payload.get("cases")
+    ids = [case.get("id") for case in cases] if isinstance(cases, list) else []
+    if ids != list(FIXED_CASE_IDS):
+        raise RuntimeError(
+            "fixed evaluation set contract failed: expected 39 cases with IDs "
+            "q01-q35, q35b, q36-q38 in order"
+        )
+    return cases
 
 
 def main() -> int:
@@ -120,7 +136,11 @@ def _run(workdir: Path, report_file: Path) -> int:
     from app.rag.vector_store import get_vector_store
     from app.storage.db import init_db, session_scope
 
-    cases = json.loads(EVAL_SET.read_text(encoding="utf-8"))["cases"]
+    try:
+        cases = _load_fixed_cases()
+    except (OSError, json.JSONDecodeError, RuntimeError) as exc:
+        print(str(exc), file=sys.stderr)
+        return 1
     docs = sorted(DOCS_DIR.glob("*.md"))
     if not docs:
         print(f"no documents in {DOCS_DIR}", file=sys.stderr)
@@ -190,11 +210,18 @@ def _run(workdir: Path, report_file: Path) -> int:
 
     rows = _print_report(scored) if not rerank_failures else []
     report_file.parent.mkdir(parents=True, exist_ok=True)
+    dataset_sha256 = hashlib.sha256(EVAL_SET.read_bytes()).hexdigest()
     report_file.write_text(
         json.dumps(
             {
                 "evaluated_at": datetime.now(timezone.utc).isoformat(),
                 "workdir": str(workdir),
+                "evaluation_set": {
+                    "path": str(EVAL_SET),
+                    "sha256": dataset_sha256,
+                    "case_ids": list(FIXED_CASE_IDS),
+                    "case_count": len(cases),
+                },
                 "documents": _document_manifest(docs),
                 "document_count": len(docs),
                 "chunk_count": store.count(),
@@ -204,6 +231,7 @@ def _run(workdir: Path, report_file: Path) -> int:
                     "reranker": type(retriever._reranker).__name__,
                 },
                 "case_count": len(cases),
+                "scored_case_count": len(scored),
                 "rerank_verified": not rerank_failures,
                 "rerank_failure_reasons": rerank_failures,
                 "thresholds": [asdict(row) for row in rows],

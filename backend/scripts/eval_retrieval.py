@@ -95,10 +95,63 @@ def _document_manifest(docs: list[Path]) -> list[dict[str, str]]:
 CANDIDATE_K = 20
 TOP_N = 5
 
+# v1.0 发布门槛。hard 子集显式冻结，避免在看到结果后通过修改 difficulty
+# 标签缩小或替换困难样本；全量评测仍保留全部案例并报告相对 MRR 变化。
+FIXED_HARD_CASE_IDS = (
+    "q11", "q13", "q14", "q15", "q16", "q17", "q18", "q19", "q20",
+    "q21", "q22", "q23", "q24", "q25", "q27", "q29", "q30",
+)
+MIN_FULL_HIT_AT_5 = 0.85
+MIN_FULL_MRR = 0.80
+MIN_HARD_MRR_IMPROVEMENT = 0.15
+
 
 def _is_hit(text: str, keywords: list[str]) -> bool:
     lowered = text.lower()
     return any(k.lower() in lowered for k in keywords)
+
+
+def _validate_hard_subset(cases: list[dict[str, object]]) -> list[str]:
+    hard_case_ids = [
+        str(case["id"])
+        for case in cases
+        if case.get("difficulty") == "hard"
+    ]
+    if hard_case_ids != list(FIXED_HARD_CASE_IDS):
+        raise RuntimeError(
+            "hard evaluation subset drifted: "
+            f"expected={list(FIXED_HARD_CASE_IDS)}, actual={hard_case_ids}"
+        )
+    return hard_case_ids
+
+
+def _release_gates(results: list[ConfigResult]) -> dict[str, object]:
+    base, _, reranked = results
+    checks = {
+        "full_hit_at_5": reranked.hit_at_5 >= MIN_FULL_HIT_AT_5,
+        "full_mrr": reranked.mrr >= MIN_FULL_MRR,
+        "full_hit_at_5_non_regression": reranked.hit_at_5 >= base.hit_at_5,
+        "hard_mrr_improvement": (
+            reranked.hard_mrr - base.hard_mrr
+        ) >= MIN_HARD_MRR_IMPROVEMENT,
+    }
+    return {
+        "passed": all(checks.values()) and reranked.rerank_verified,
+        "checks": checks,
+        "thresholds": {
+            "min_full_hit_at_5": MIN_FULL_HIT_AT_5,
+            "min_full_mrr": MIN_FULL_MRR,
+            "full_hit_at_5_must_not_regress": True,
+            "min_hard_mrr_improvement": MIN_HARD_MRR_IMPROVEMENT,
+        },
+        "observed": {
+            "full_hit_at_5": reranked.hit_at_5,
+            "full_mrr": reranked.mrr,
+            "full_mrr_improvement": reranked.mrr - base.mrr,
+            "hard_mrr": reranked.hard_mrr,
+            "hard_mrr_improvement": reranked.hard_mrr - base.hard_mrr,
+        },
+    }
 
 
 def main() -> int:
@@ -158,7 +211,15 @@ def _run(fake: bool, docs_dir: Path, eval_set: Path, workdir: Path, report_file:
         embedding = get_embedding_client()
         real_reranker = get_reranker()
 
-    cases = json.loads(eval_set.read_text(encoding="utf-8"))["cases"]
+    eval_bytes = eval_set.read_bytes()
+    all_cases = json.loads(eval_bytes.decode("utf-8"))["cases"]
+    hard_case_ids = _validate_hard_subset(all_cases)
+    # 检索指标只统计知识查询。工具案例用于端到端路由门禁，不能因为工具字段
+    # 恰好与某段文档重合而抬高或压低 Hit@K/MRR。
+    cases = [case for case in all_cases if case.get("difficulty") != "tool"]
+    excluded_tool_case_ids = [
+        case["id"] for case in all_cases if case.get("difficulty") == "tool"
+    ]
     docs = sorted(docs_dir.glob("*.md"))
     if not docs:
         print(f"no documents in {docs_dir}", file=sys.stderr)
@@ -290,6 +351,7 @@ def _run(fake: bool, docs_dir: Path, eval_set: Path, workdir: Path, report_file:
 
     _print_report(results, len(cases), fake)
     report_file.parent.mkdir(parents=True, exist_ok=True)
+    release_gates = _release_gates(results)
     report_file.write_text(
         json.dumps(
             {
@@ -304,8 +366,17 @@ def _run(fake: bool, docs_dir: Path, eval_set: Path, workdir: Path, report_file:
                     "embedding": type(embedding).__name__,
                     "reranker": type(real_reranker).__name__,
                 },
+                "eval_set": {
+                    "path": str(eval_set),
+                    "sha256": hashlib.sha256(eval_bytes).hexdigest(),
+                    "case_ids": [case["id"] for case in all_cases],
+                    "hard_case_ids": hard_case_ids,
+                    "excluded_tool_case_ids": excluded_tool_case_ids,
+                },
+                "source_case_count": len(all_cases),
                 "case_count": len(cases),
                 "results": [asdict(result) for result in results],
+                "release_gates": release_gates,
             },
             ensure_ascii=False,
             indent=2,
@@ -323,6 +394,17 @@ def _run(fake: bool, docs_dir: Path, eval_set: Path, workdir: Path, report_file:
                 file=sys.stderr,
             )
         return 1
+    if not fake and not release_gates["passed"]:
+        failed_checks = [
+            name
+            for name, passed in release_gates["checks"].items()
+            if not passed
+        ]
+        print(
+            "ERROR: retrieval release gates failed: " + ", ".join(failed_checks),
+            file=sys.stderr,
+        )
+        return 2
     return 0
 
 

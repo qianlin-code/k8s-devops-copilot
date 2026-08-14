@@ -6,85 +6,85 @@
     "total": 9,
     "conversations": [
       {
-        "conversation_id": "bd7ac488-d8d1-4c37-8849-08d3afba4ec1",
+        "conversation_id": "00ad30ce-6256-4d93-95b5-acce84ea2439",
         "user_id": "user-regular",
         "title": "CrashLoopBackOff 是什么原因",
         "message_count": 10,
         "has_summary": true,
-        "created_at": "2026-08-11T05:46:48.294006Z",
-        "updated_at": "2026-08-11T05:46:48.324066Z"
+        "created_at": "2026-08-14T07:34:08.924186Z",
+        "updated_at": "2026-08-14T07:34:08.951884Z"
       },
       {
-        "conversation_id": "097d1a92-e0f4-4a87-99e0-d5b81d15be81",
+        "conversation_id": "c83e3312-ab04-4ebd-8176-37e177f0d447",
         "user_id": "user-regular",
         "title": "查一下 does-not-exist 的状态",
         "message_count": 2,
         "has_summary": false,
-        "created_at": "2026-08-11T05:46:48.219075Z",
-        "updated_at": "2026-08-11T05:46:48.219075Z"
+        "created_at": "2026-08-14T07:34:08.918562Z",
+        "updated_at": "2026-08-14T07:34:08.918562Z"
       },
       {
-        "conversation_id": "e5b57d29-88fc-4acd-9870-881286c7c470",
+        "conversation_id": "5d2b0a6c-1a0e-49eb-a634-c8d124def46a",
         "user_id": "user-regular",
         "title": "所有配置都正常但就是间歇性调度失败，非常诡异",
         "message_count": 2,
         "has_summary": false,
-        "created_at": "2026-08-11T05:46:48.207514Z",
-        "updated_at": "2026-08-11T05:46:48.207514Z"
+        "created_at": "2026-08-14T07:34:08.907109Z",
+        "updated_at": "2026-08-14T07:34:08.907109Z"
       },
       {
-        "conversation_id": "e592f5a3-3599-42ca-88bb-31c63a5ccaa6",
+        "conversation_id": "31b39fa7-a748-4bd3-a222-943db920a6c7",
         "user_id": "user-regular",
         "title": "公司的年会安排在什么时候",
         "message_count": 2,
         "has_summary": false,
-        "created_at": "2026-08-11T05:46:48.198787Z",
-        "updated_at": "2026-08-11T05:46:48.198787Z"
+        "created_at": "2026-08-14T07:34:08.898357Z",
+        "updated_at": "2026-08-14T07:34:08.898357Z"
       },
       {
-        "conversation_id": "6af1f4ef-f42b-45f8-b89e-eb602cbaf7a2",
+        "conversation_id": "198fdcdf-7721-47be-a145-8c006e1cf714",
         "user_id": "user-regular",
-        "title": "还是不行，帮我提个告警工单",
+        "title": "在 ops-demo 提个告警工单，标题 api-gateway Pod 长期 Pending 需人工介入，描述资源已确认充足但仍无法调度，需要工程师排查调度器",
         "message_count": 3,
         "has_summary": false,
-        "created_at": "2026-08-11T05:46:48.181885Z",
-        "updated_at": "2026-08-11T05:46:48.181885Z"
+        "created_at": "2026-08-14T07:34:08.879509Z",
+        "updated_at": "2026-08-14T07:34:08.879509Z"
       },
       {
-        "conversation_id": "eb4c430c-2a29-4c0e-bd23-7ea50d4b616a",
+        "conversation_id": "3690be01-5aa6-41ff-b0af-cd2a42ef33db",
         "user_id": "user-regular",
-        "title": "worker-queue 的配置已经修好了，请帮我重启一下",
+        "title": "请重启 ops-demo 下的 worker-queue Deployment，原因是配置修复后重启生效",
         "message_count": 3,
         "has_summary": false,
-        "created_at": "2026-08-11T05:46:48.158007Z",
-        "updated_at": "2026-08-11T05:46:48.158007Z"
+        "created_at": "2026-08-14T07:34:08.851618Z",
+        "updated_at": "2026-08-14T07:34:08.851618Z"
       },
       {
-        "conversation_id": "27fbcdfd-dffe-4d0e-a717-5c81e238715c",
+        "conversation_id": "641f6d9f-d65c-496b-b5af-885bed67f5d3",
         "user_id": "user-regular",
         "title": "查一下 ops-demo 下 api-gateway-7f9c 这个 Pod 的状态，一直是 Pending",
         "message_count": 2,
         "has_summary": false,
-        "created_at": "2026-08-11T05:46:48.146258Z",
-        "updated_at": "2026-08-11T05:46:48.146258Z"
+        "created_at": "2026-08-14T07:34:08.834473Z",
+        "updated_at": "2026-08-14T07:34:08.834473Z"
       },
       {
-        "conversation_id": "c68cf51d-c0d9-40b4-820c-363cdebec4e4",
+        "conversation_id": "85409c97-2803-43b2-a6a4-9c1aef4caa5b",
         "user_id": "user-regular",
         "title": "Pod Pending 怎么处理",
         "message_count": 2,
         "has_summary": false,
-        "created_at": "2026-08-11T05:46:48.132749Z",
-        "updated_at": "2026-08-11T05:46:48.132749Z"
+        "created_at": "2026-08-14T07:34:08.820431Z",
+        "updated_at": "2026-08-14T07:34:08.820431Z"
       },
       {
-        "conversation_id": "4f40e58d-e1f7-43ca-88de-f15dbf05ad4a",
+        "conversation_id": "72d68cbd-6839-4030-9718-fa8b451df294",
         "user_id": "user-regular",
         "title": "Pod Pending 怎么处理",
         "message_count": 2,
         "has_summary": false,
-        "created_at": "2026-08-11T05:46:48.120680Z",
-        "updated_at": "2026-08-11T05:46:48.120680Z"
+        "created_at": "2026-08-14T07:34:08.804857Z",
+        "updated_at": "2026-08-14T07:34:08.804857Z"
       }
     ]
   }

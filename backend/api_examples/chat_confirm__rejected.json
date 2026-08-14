@@ -2,17 +2,17 @@
   "endpoint": "chat/confirm",
   "http_status": 200,
   "request": {
-    "conversation_id": "6af1f4ef-f42b-45f8-b89e-eb602cbaf7a2",
+    "conversation_id": "198fdcdf-7721-47be-a145-8c006e1cf714",
     "confirmation_token": "<token from pending_write>",
     "approved": false
   },
   "response": {
-    "conversation_id": "6af1f4ef-f42b-45f8-b89e-eb602cbaf7a2",
+    "conversation_id": "198fdcdf-7721-47be-a145-8c006e1cf714",
     "message_id": 12,
     "outcome": "write_rejected",
     "answer": "已取消该操作（创建告警事件工单，转交给后台工程师。当知识库无解、或需要集群管理员权限才能处理时使用。属于写操作，执行前需要用户确认。），未对系统做任何修改。",
     "pending_write": null,
     "trace": null,
-    "created_at": "2026-08-11T05:46:48.192046Z"
+    "created_at": "2026-08-14T07:34:08.892834Z"
   }
 }

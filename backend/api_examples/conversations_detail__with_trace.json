@@ -3,29 +3,29 @@
   "http_status": 200,
   "request": null,
   "response": {
-    "conversation_id": "bd7ac488-d8d1-4c37-8849-08d3afba4ec1",
+    "conversation_id": "00ad30ce-6256-4d93-95b5-acce84ea2439",
     "user_id": "user-regular",
     "title": "CrashLoopBackOff 是什么原因",
     "summary": "替身生成的历史摘要。",
-    "created_at": "2026-08-11T05:46:48.294006Z",
-    "updated_at": "2026-08-11T05:46:48.324066Z",
+    "created_at": "2026-08-14T07:34:08.924186Z",
+    "updated_at": "2026-08-14T07:34:08.951884Z",
     "messages": [
       {
         "message_id": 19,
         "role": "user",
         "content": "CrashLoopBackOff 是什么原因",
-        "trace_id": "e71948dff8a945229899b72572f3d0b0",
+        "trace_id": "35680e23f6e8494ea8cfd6a77d7f2e31",
         "trace": null,
-        "created_at": "2026-08-11T05:46:48.296100Z"
+        "created_at": "2026-08-14T07:34:08.924696Z"
       },
       {
         "message_id": 20,
         "role": "assistant",
-        "content": "CrashLoopBackOff 是容器进程异常退出触发的反复重启[1]。",
-        "trace_id": "e71948dff8a945229899b72572f3d0b0",
+        "content": "结论\n- 容器进程本身异常退出，需查看 kubectl logs --previous 排查上一次崩溃原因。 [K1.A1]\n\n证据步骤\n- 当前证据未提供可验证步骤。",
+        "trace_id": "35680e23f6e8494ea8cfd6a77d7f2e31",
         "trace": {
-          "trace_id": "e71948dff8a945229899b72572f3d0b0",
-          "total_elapsed_ms": 2,
+          "trace_id": "35680e23f6e8494ea8cfd6a77d7f2e31",
+          "total_elapsed_ms": 1,
           "context": {
             "total_turns": 0,
             "windowed_turns": 0,
@@ -57,8 +57,8 @@
                 "hit_count": 2,
                 "elapsed_ms": 0,
                 "top_chunk_ids": [
-                  "148fca6d-10f6-4b84-88d9-a2a4d1ad8756",
-                  "5700c5de-b199-4004-a3b2-3e13d02d271d"
+                  "a8add3f1-afb6-4bbe-8d12-ee689db26f8f",
+                  "c9d4232b-82c1-4894-a58d-42df6ad73022"
                 ],
                 "note": null
               },
@@ -74,8 +74,8 @@
                 "hit_count": 2,
                 "elapsed_ms": 0,
                 "top_chunk_ids": [
-                  "148fca6d-10f6-4b84-88d9-a2a4d1ad8756",
-                  "5700c5de-b199-4004-a3b2-3e13d02d271d"
+                  "a8add3f1-afb6-4bbe-8d12-ee689db26f8f",
+                  "c9d4232b-82c1-4894-a58d-42df6ad73022"
                 ],
                 "note": null
               },
@@ -84,8 +84,8 @@
                 "hit_count": 2,
                 "elapsed_ms": 0,
                 "top_chunk_ids": [
-                  "148fca6d-10f6-4b84-88d9-a2a4d1ad8756",
-                  "5700c5de-b199-4004-a3b2-3e13d02d271d"
+                  "a8add3f1-afb6-4bbe-8d12-ee689db26f8f",
+                  "c9d4232b-82c1-4894-a58d-42df6ad73022"
                 ],
                 "note": null
               },
@@ -94,21 +94,35 @@
                 "hit_count": 0,
                 "elapsed_ms": 0,
                 "top_chunk_ids": [],
-                "note": "no_procedural_chunks"
+                "note": "checked_docs=1 all_duplicates"
               },
               {
                 "name": "relevance_filter",
                 "hit_count": 1,
                 "elapsed_ms": 0,
                 "top_chunk_ids": [],
-                "note": "threshold=0.12 dropped=1"
+                "note": "threshold=0.03 dropped=1"
+              },
+              {
+                "name": "topic_context",
+                "hit_count": 0,
+                "elapsed_ms": 0,
+                "top_chunk_ids": [],
+                "note": "no_matching_rerank_top_n_sibling"
+              },
+              {
+                "name": "explicit_heading_context",
+                "hit_count": 0,
+                "elapsed_ms": 0,
+                "top_chunk_ids": [],
+                "note": "no_matching_rerank_top_n_heading"
               }
             ],
             "citations": [
               {
                 "index": 1,
-                "chunk_id": "148fca6d-10f6-4b84-88d9-a2a4d1ad8756",
-                "document_id": "fe441b96-9e04-481d-9db5-8c6e266d6703",
+                "chunk_id": "a8add3f1-afb6-4bbe-8d12-ee689db26f8f",
+                "document_id": "cdfedfb5-d96b-4cef-ac57-a3503450b492",
                 "document_title": "Pod 生命周期故障排查",
                 "citation_label": "Pod 生命周期故障排查 / Pod 反复重启（CrashLoopBackOff）",
                 "heading_path": [
@@ -121,6 +135,372 @@
                 "rank_after": 1
               }
             ]
+          },
+          "route_decisions": [
+            {
+              "round": 1,
+              "action": "answer",
+              "reasoning": "已检索到通过相关性阈值的知识证据，问题未请求实时状态或操作。",
+              "confidence": 1.0,
+              "tool_name": null,
+              "tool_arguments": {}
+            }
+          ],
+          "tool_calls": [],
+          "sufficiency": null,
+          "steps": [
+            {
+              "step": 1,
+              "node": "route",
+              "detail": {
+                "round": 0,
+                "action": "answer",
+                "reasoning": "已检索到通过相关性阈值的知识证据，问题未请求实时状态或操作。",
+                "confidence": 1.0,
+                "tool_name": null,
+                "policy": "knowledge_evidence_direct_answer"
+              }
+            },
+            {
+              "step": 2,
+              "node": "generate_answer",
+              "detail": {
+                "length": 84,
+                "status": "verified",
+                "attempts": 1,
+                "fallback_reason": null
+              }
+            }
+          ],
+          "security": {
+            "input_flags": [],
+            "output_redactions": []
+          },
+          "agent_max_steps": 4,
+          "answer_evidence": [
+            {
+              "item_index": 1,
+              "section": "conclusion",
+              "evidence_kind": "knowledge",
+              "source_id": "K1.A1",
+              "rendered_text": "容器进程本身异常退出，需查看 kubectl logs --previous 排查上一次崩溃原因。",
+              "chunk_id": "a8add3f1-afb6-4bbe-8d12-ee689db26f8f",
+              "citation_label": "Pod 生命周期故障排查 / Pod 反复重启（CrashLoopBackOff）",
+              "exact_quote": "容器进程本身异常退出，需查看 kubectl logs --previous 排查上一次崩溃原因。",
+              "tool_name": null,
+              "invocation_index": null,
+              "json_pointer": null,
+              "serialized_value": null
+            }
+          ],
+          "answer_generation": {
+            "status": "verified",
+            "attempts": 1,
+            "fallback_reason": null
+          }
+        },
+        "created_at": "2026-08-14T07:34:08.925703Z"
+      },
+      {
+        "message_id": 21,
+        "role": "user",
+        "content": "那 Pending 呢",
+        "trace_id": "ecacef97743c437a91437c3606652088",
+        "trace": null,
+        "created_at": "2026-08-14T07:34:08.929708Z"
+      },
+      {
+        "message_id": 22,
+        "role": "assistant",
+        "content": "结论\n- Pending 表示 Pod 还没有被调度到任何节点上，通常是资源不足导致调度器无法为其找到合适的节点，需检查集群 CPU/内存剩余容量。 [K1.A1]\n\n证据步骤\n- 当前证据未提供可验证步骤。",
+        "trace_id": "ecacef97743c437a91437c3606652088",
+        "trace": {
+          "trace_id": "ecacef97743c437a91437c3606652088",
+          "total_elapsed_ms": 3,
+          "context": {
+            "total_turns": 1,
+            "windowed_turns": 1,
+            "summarized": false,
+            "summary_source_turns": 0,
+            "degrade_reason": null,
+            "summary": null
+          },
+          "retrieval": {
+            "query_rewrite": {
+              "original": "那 Pending 呢",
+              "rewritten": "那 Pending 呢",
+              "applied": false,
+              "keywords": [],
+              "skip_reason": "disabled"
+            },
+            "hybrid_enabled": true,
+            "rerank_applied": true,
+            "stages": [
+              {
+                "name": "query_rewrite",
+                "hit_count": 0,
+                "elapsed_ms": 0,
+                "top_chunk_ids": [],
+                "note": "disabled"
+              },
+              {
+                "name": "vector_search",
+                "hit_count": 2,
+                "elapsed_ms": 0,
+                "top_chunk_ids": [
+                  "c9d4232b-82c1-4894-a58d-42df6ad73022",
+                  "a8add3f1-afb6-4bbe-8d12-ee689db26f8f"
+                ],
+                "note": null
+              },
+              {
+                "name": "bm25_search",
+                "hit_count": 0,
+                "elapsed_ms": 0,
+                "top_chunk_ids": [],
+                "note": null
+              },
+              {
+                "name": "rrf_fusion",
+                "hit_count": 2,
+                "elapsed_ms": 0,
+                "top_chunk_ids": [
+                  "c9d4232b-82c1-4894-a58d-42df6ad73022",
+                  "a8add3f1-afb6-4bbe-8d12-ee689db26f8f"
+                ],
+                "note": null
+              },
+              {
+                "name": "rerank",
+                "hit_count": 2,
+                "elapsed_ms": 0,
+                "top_chunk_ids": [
+                  "c9d4232b-82c1-4894-a58d-42df6ad73022",
+                  "a8add3f1-afb6-4bbe-8d12-ee689db26f8f"
+                ],
+                "note": null
+              },
+              {
+                "name": "associated_recall",
+                "hit_count": 0,
+                "elapsed_ms": 0,
+                "top_chunk_ids": [],
+                "note": "checked_docs=1 all_duplicates"
+              },
+              {
+                "name": "relevance_filter",
+                "hit_count": 1,
+                "elapsed_ms": 0,
+                "top_chunk_ids": [],
+                "note": "threshold=0.03 dropped=1"
+              },
+              {
+                "name": "topic_context",
+                "hit_count": 0,
+                "elapsed_ms": 0,
+                "top_chunk_ids": [],
+                "note": "no_matching_rerank_top_n_sibling"
+              },
+              {
+                "name": "explicit_heading_context",
+                "hit_count": 0,
+                "elapsed_ms": 0,
+                "top_chunk_ids": [],
+                "note": "no_matching_rerank_top_n_heading"
+              }
+            ],
+            "citations": [
+              {
+                "index": 1,
+                "chunk_id": "c9d4232b-82c1-4894-a58d-42df6ad73022",
+                "document_id": "cdfedfb5-d96b-4cef-ac57-a3503450b492",
+                "document_title": "Pod 生命周期故障排查",
+                "citation_label": "Pod 生命周期故障排查 / Pod 停滞在 Pending 状态",
+                "heading_path": [
+                  "Pod 生命周期故障排查",
+                  "Pod 停滞在 Pending 状态"
+                ],
+                "text": "Pending 表示 Pod 还没有被调度到任何节点上，通常是资源不足导致调度器无法为其找到合适的节点，需检查集群 CPU/内存剩余容量。",
+                "rerank_score": 0.5,
+                "rank_before": 1,
+                "rank_after": 1
+              }
+            ]
+          },
+          "route_decisions": [
+            {
+              "round": 1,
+              "action": "answer",
+              "reasoning": "已检索到通过相关性阈值的知识证据，问题未请求实时状态或操作。",
+              "confidence": 1.0,
+              "tool_name": null,
+              "tool_arguments": {}
+            }
+          ],
+          "tool_calls": [],
+          "sufficiency": null,
+          "steps": [
+            {
+              "step": 1,
+              "node": "route",
+              "detail": {
+                "round": 0,
+                "action": "answer",
+                "reasoning": "已检索到通过相关性阈值的知识证据，问题未请求实时状态或操作。",
+                "confidence": 1.0,
+                "tool_name": null,
+                "policy": "knowledge_evidence_direct_answer"
+              }
+            },
+            {
+              "step": 2,
+              "node": "generate_answer",
+              "detail": {
+                "length": 104,
+                "status": "verified",
+                "attempts": 1,
+                "fallback_reason": null
+              }
+            }
+          ],
+          "security": {
+            "input_flags": [],
+            "output_redactions": []
+          },
+          "agent_max_steps": 4,
+          "answer_evidence": [
+            {
+              "item_index": 1,
+              "section": "conclusion",
+              "evidence_kind": "knowledge",
+              "source_id": "K1.A1",
+              "rendered_text": "Pending 表示 Pod 还没有被调度到任何节点上，通常是资源不足导致调度器无法为其找到合适的节点，需检查集群 CPU/内存剩余容量。",
+              "chunk_id": "c9d4232b-82c1-4894-a58d-42df6ad73022",
+              "citation_label": "Pod 生命周期故障排查 / Pod 停滞在 Pending 状态",
+              "exact_quote": "Pending 表示 Pod 还没有被调度到任何节点上，通常是资源不足导致调度器无法为其找到合适的节点，需检查集群 CPU/内存剩余容量。",
+              "tool_name": null,
+              "invocation_index": null,
+              "json_pointer": null,
+              "serialized_value": null
+            }
+          ],
+          "answer_generation": {
+            "status": "verified",
+            "attempts": 1,
+            "fallback_reason": null
+          }
+        },
+        "created_at": "2026-08-14T07:34:08.932225Z"
+      },
+      {
+        "message_id": 23,
+        "role": "user",
+        "content": "重启要怎么操作",
+        "trace_id": "c2662bb10bde48f28b91f63e34adfabf",
+        "trace": null,
+        "created_at": "2026-08-14T07:34:08.939752Z"
+      },
+      {
+        "message_id": 24,
+        "role": "assistant",
+        "content": "抱歉，根据现有的知识库内容和系统数据，我无法准确回答这个问题。\n\n缺少以下关键信息：\n- 回答证据未能通过逐项校验\n\n建议：请补充可核验的信息后重试，或提交工单转人工处理。",
+        "trace_id": "c2662bb10bde48f28b91f63e34adfabf",
+        "trace": {
+          "trace_id": "c2662bb10bde48f28b91f63e34adfabf",
+          "total_elapsed_ms": 3,
+          "context": {
+            "total_turns": 2,
+            "windowed_turns": 2,
+            "summarized": false,
+            "summary_source_turns": 0,
+            "degrade_reason": null,
+            "summary": null
+          },
+          "retrieval": {
+            "query_rewrite": {
+              "original": "重启要怎么操作",
+              "rewritten": "重启要怎么操作",
+              "applied": false,
+              "keywords": [],
+              "skip_reason": "disabled"
+            },
+            "hybrid_enabled": true,
+            "rerank_applied": true,
+            "stages": [
+              {
+                "name": "query_rewrite",
+                "hit_count": 0,
+                "elapsed_ms": 0,
+                "top_chunk_ids": [],
+                "note": "disabled"
+              },
+              {
+                "name": "vector_search",
+                "hit_count": 2,
+                "elapsed_ms": 0,
+                "top_chunk_ids": [
+                  "a8add3f1-afb6-4bbe-8d12-ee689db26f8f",
+                  "c9d4232b-82c1-4894-a58d-42df6ad73022"
+                ],
+                "note": null
+              },
+              {
+                "name": "bm25_search",
+                "hit_count": 0,
+                "elapsed_ms": 0,
+                "top_chunk_ids": [],
+                "note": null
+              },
+              {
+                "name": "rrf_fusion",
+                "hit_count": 2,
+                "elapsed_ms": 0,
+                "top_chunk_ids": [
+                  "a8add3f1-afb6-4bbe-8d12-ee689db26f8f",
+                  "c9d4232b-82c1-4894-a58d-42df6ad73022"
+                ],
+                "note": null
+              },
+              {
+                "name": "rerank",
+                "hit_count": 2,
+                "elapsed_ms": 0,
+                "top_chunk_ids": [
+                  "a8add3f1-afb6-4bbe-8d12-ee689db26f8f",
+                  "c9d4232b-82c1-4894-a58d-42df6ad73022"
+                ],
+                "note": null
+              },
+              {
+                "name": "associated_recall",
+                "hit_count": 0,
+                "elapsed_ms": 0,
+                "top_chunk_ids": [],
+                "note": "checked_docs=1 all_duplicates"
+              },
+              {
+                "name": "relevance_filter",
+                "hit_count": 0,
+                "elapsed_ms": 0,
+                "top_chunk_ids": [],
+                "note": "threshold=0.03 dropped=2"
+              },
+              {
+                "name": "topic_context",
+                "hit_count": 0,
+                "elapsed_ms": 0,
+                "top_chunk_ids": [],
+                "note": "no_kept_context"
+              },
+              {
+                "name": "explicit_heading_context",
+                "hit_count": 0,
+                "elapsed_ms": 0,
+                "top_chunk_ids": [],
+                "note": "no_explicit_token_or_kept_context"
+              }
+            ],
+            "citations": []
           },
           "route_decisions": [
             {
@@ -164,7 +544,10 @@
               "step": 3,
               "node": "generate_answer",
               "detail": {
-                "length": 37
+                "length": 86,
+                "status": "fallback",
+                "attempts": 2,
+                "fallback_reason": "no_evidence_selected"
               }
             }
           ],
@@ -172,341 +555,31 @@
             "input_flags": [],
             "output_redactions": []
           },
-          "agent_max_steps": 4
+          "agent_max_steps": 4,
+          "answer_evidence": [],
+          "answer_generation": {
+            "status": "fallback",
+            "attempts": 2,
+            "fallback_reason": "no_evidence_selected"
+          }
         },
-        "created_at": "2026-08-11T05:46:48.297612Z"
-      },
-      {
-        "message_id": 21,
-        "role": "user",
-        "content": "那 Pending 呢",
-        "trace_id": "b7a8445d34144f73a64100addcbbb259",
-        "trace": null,
-        "created_at": "2026-08-11T05:46:48.303626Z"
-      },
-      {
-        "message_id": 22,
-        "role": "assistant",
-        "content": "关于「那 Pending 呢」：请参考手册中的对应章节[1]。",
-        "trace_id": "b7a8445d34144f73a64100addcbbb259",
-        "trace": {
-          "trace_id": "b7a8445d34144f73a64100addcbbb259",
-          "total_elapsed_ms": 2,
-          "context": {
-            "total_turns": 1,
-            "windowed_turns": 1,
-            "summarized": false,
-            "summary_source_turns": 0,
-            "degrade_reason": null,
-            "summary": null
-          },
-          "retrieval": {
-            "query_rewrite": {
-              "original": "那 Pending 呢",
-              "rewritten": "那 Pending 呢",
-              "applied": false,
-              "keywords": [],
-              "skip_reason": "disabled"
-            },
-            "hybrid_enabled": true,
-            "rerank_applied": true,
-            "stages": [
-              {
-                "name": "query_rewrite",
-                "hit_count": 0,
-                "elapsed_ms": 0,
-                "top_chunk_ids": [],
-                "note": "disabled"
-              },
-              {
-                "name": "vector_search",
-                "hit_count": 2,
-                "elapsed_ms": 0,
-                "top_chunk_ids": [
-                  "5700c5de-b199-4004-a3b2-3e13d02d271d",
-                  "148fca6d-10f6-4b84-88d9-a2a4d1ad8756"
-                ],
-                "note": null
-              },
-              {
-                "name": "bm25_search",
-                "hit_count": 0,
-                "elapsed_ms": 0,
-                "top_chunk_ids": [],
-                "note": null
-              },
-              {
-                "name": "rrf_fusion",
-                "hit_count": 2,
-                "elapsed_ms": 0,
-                "top_chunk_ids": [
-                  "5700c5de-b199-4004-a3b2-3e13d02d271d",
-                  "148fca6d-10f6-4b84-88d9-a2a4d1ad8756"
-                ],
-                "note": null
-              },
-              {
-                "name": "rerank",
-                "hit_count": 2,
-                "elapsed_ms": 0,
-                "top_chunk_ids": [
-                  "5700c5de-b199-4004-a3b2-3e13d02d271d",
-                  "148fca6d-10f6-4b84-88d9-a2a4d1ad8756"
-                ],
-                "note": null
-              },
-              {
-                "name": "associated_recall",
-                "hit_count": 0,
-                "elapsed_ms": 0,
-                "top_chunk_ids": [],
-                "note": "no_procedural_chunks"
-              },
-              {
-                "name": "relevance_filter",
-                "hit_count": 1,
-                "elapsed_ms": 0,
-                "top_chunk_ids": [],
-                "note": "threshold=0.12 dropped=1"
-              }
-            ],
-            "citations": [
-              {
-                "index": 1,
-                "chunk_id": "5700c5de-b199-4004-a3b2-3e13d02d271d",
-                "document_id": "fe441b96-9e04-481d-9db5-8c6e266d6703",
-                "document_title": "Pod 生命周期故障排查",
-                "citation_label": "Pod 生命周期故障排查 / Pod 停滞在 Pending 状态",
-                "heading_path": [
-                  "Pod 生命周期故障排查",
-                  "Pod 停滞在 Pending 状态"
-                ],
-                "text": "Pending 表示 Pod 还没有被调度到任何节点上，通常是资源不足导致调度器无法为其找到合适的节点，需检查集群 CPU/内存剩余容量。",
-                "rerank_score": 0.5,
-                "rank_before": 1,
-                "rank_after": 1
-              }
-            ]
-          },
-          "route_decisions": [
-            {
-              "round": 1,
-              "action": "answer",
-              "reasoning": "沿用知识片段回答",
-              "confidence": 0.85,
-              "tool_name": null,
-              "tool_arguments": {}
-            }
-          ],
-          "tool_calls": [],
-          "sufficiency": {
-            "sufficient": true,
-            "reasoning": "片段足够",
-            "missing_information": [],
-            "suggested_next_step": null
-          },
-          "steps": [
-            {
-              "step": 1,
-              "node": "route",
-              "detail": {
-                "round": 1,
-                "action": "answer",
-                "reasoning": "沿用知识片段回答",
-                "confidence": 0.85,
-                "tool_name": null
-              }
-            },
-            {
-              "step": 2,
-              "node": "verify_sufficiency",
-              "detail": {
-                "sufficient": true,
-                "reasoning": "片段足够",
-                "missing_information": []
-              }
-            },
-            {
-              "step": 3,
-              "node": "generate_answer",
-              "detail": {
-                "length": 31
-              }
-            }
-          ],
-          "security": {
-            "input_flags": [],
-            "output_redactions": []
-          },
-          "agent_max_steps": 4
-        },
-        "created_at": "2026-08-11T05:46:48.306723Z"
-      },
-      {
-        "message_id": 23,
-        "role": "user",
-        "content": "重启要怎么操作",
-        "trace_id": "800ee3130f2f4383982b0009863eddf6",
-        "trace": null,
-        "created_at": "2026-08-11T05:46:48.314239Z"
-      },
-      {
-        "message_id": 24,
-        "role": "assistant",
-        "content": "关于「重启要怎么操作」：请参考手册中的对应章节[1]。",
-        "trace_id": "800ee3130f2f4383982b0009863eddf6",
-        "trace": {
-          "trace_id": "800ee3130f2f4383982b0009863eddf6",
-          "total_elapsed_ms": 2,
-          "context": {
-            "total_turns": 2,
-            "windowed_turns": 2,
-            "summarized": false,
-            "summary_source_turns": 0,
-            "degrade_reason": null,
-            "summary": null
-          },
-          "retrieval": {
-            "query_rewrite": {
-              "original": "重启要怎么操作",
-              "rewritten": "重启要怎么操作",
-              "applied": false,
-              "keywords": [],
-              "skip_reason": "disabled"
-            },
-            "hybrid_enabled": true,
-            "rerank_applied": true,
-            "stages": [
-              {
-                "name": "query_rewrite",
-                "hit_count": 0,
-                "elapsed_ms": 0,
-                "top_chunk_ids": [],
-                "note": "disabled"
-              },
-              {
-                "name": "vector_search",
-                "hit_count": 2,
-                "elapsed_ms": 0,
-                "top_chunk_ids": [
-                  "148fca6d-10f6-4b84-88d9-a2a4d1ad8756",
-                  "5700c5de-b199-4004-a3b2-3e13d02d271d"
-                ],
-                "note": null
-              },
-              {
-                "name": "bm25_search",
-                "hit_count": 0,
-                "elapsed_ms": 0,
-                "top_chunk_ids": [],
-                "note": null
-              },
-              {
-                "name": "rrf_fusion",
-                "hit_count": 2,
-                "elapsed_ms": 0,
-                "top_chunk_ids": [
-                  "148fca6d-10f6-4b84-88d9-a2a4d1ad8756",
-                  "5700c5de-b199-4004-a3b2-3e13d02d271d"
-                ],
-                "note": null
-              },
-              {
-                "name": "rerank",
-                "hit_count": 2,
-                "elapsed_ms": 0,
-                "top_chunk_ids": [
-                  "148fca6d-10f6-4b84-88d9-a2a4d1ad8756",
-                  "5700c5de-b199-4004-a3b2-3e13d02d271d"
-                ],
-                "note": null
-              },
-              {
-                "name": "associated_recall",
-                "hit_count": 0,
-                "elapsed_ms": 0,
-                "top_chunk_ids": [],
-                "note": "no_procedural_chunks"
-              },
-              {
-                "name": "relevance_filter",
-                "hit_count": 0,
-                "elapsed_ms": 0,
-                "top_chunk_ids": [],
-                "note": "threshold=0.12 dropped=2"
-              }
-            ],
-            "citations": []
-          },
-          "route_decisions": [
-            {
-              "round": 1,
-              "action": "answer",
-              "reasoning": "沿用知识片段回答",
-              "confidence": 0.85,
-              "tool_name": null,
-              "tool_arguments": {}
-            }
-          ],
-          "tool_calls": [],
-          "sufficiency": {
-            "sufficient": true,
-            "reasoning": "片段足够",
-            "missing_information": [],
-            "suggested_next_step": null
-          },
-          "steps": [
-            {
-              "step": 1,
-              "node": "route",
-              "detail": {
-                "round": 1,
-                "action": "answer",
-                "reasoning": "沿用知识片段回答",
-                "confidence": 0.85,
-                "tool_name": null
-              }
-            },
-            {
-              "step": 2,
-              "node": "verify_sufficiency",
-              "detail": {
-                "sufficient": true,
-                "reasoning": "片段足够",
-                "missing_information": []
-              }
-            },
-            {
-              "step": 3,
-              "node": "generate_answer",
-              "detail": {
-                "length": 27
-              }
-            }
-          ],
-          "security": {
-            "input_flags": [],
-            "output_redactions": []
-          },
-          "agent_max_steps": 4
-        },
-        "created_at": "2026-08-11T05:46:48.316031Z"
+        "created_at": "2026-08-14T07:34:08.941752Z"
       },
       {
         "message_id": 25,
         "role": "user",
         "content": "重启之后要多久生效",
-        "trace_id": "43b66c568a584f52bb1381b42d59b6bd",
+        "trace_id": "224a9d45502442d38e786ef9be6e9653",
         "trace": null,
-        "created_at": "2026-08-11T05:46:48.324066Z"
+        "created_at": "2026-08-14T07:34:08.951884Z"
       },
       {
         "message_id": 26,
         "role": "assistant",
-        "content": "关于「重启之后要多久生效」：请参考手册中的对应章节[1]。",
-        "trace_id": "43b66c568a584f52bb1381b42d59b6bd",
+        "content": "抱歉，根据现有的知识库内容和系统数据，我无法准确回答这个问题。\n\n缺少以下关键信息：\n- 回答证据未能通过逐项校验\n\n建议：请补充可核验的信息后重试，或提交工单转人工处理。",
+        "trace_id": "224a9d45502442d38e786ef9be6e9653",
         "trace": {
-          "trace_id": "43b66c568a584f52bb1381b42d59b6bd",
+          "trace_id": "224a9d45502442d38e786ef9be6e9653",
           "total_elapsed_ms": 4,
           "context": {
             "total_turns": 3,
@@ -539,8 +612,8 @@
                 "hit_count": 2,
                 "elapsed_ms": 0,
                 "top_chunk_ids": [
-                  "148fca6d-10f6-4b84-88d9-a2a4d1ad8756",
-                  "5700c5de-b199-4004-a3b2-3e13d02d271d"
+                  "a8add3f1-afb6-4bbe-8d12-ee689db26f8f",
+                  "c9d4232b-82c1-4894-a58d-42df6ad73022"
                 ],
                 "note": null
               },
@@ -556,8 +629,8 @@
                 "hit_count": 2,
                 "elapsed_ms": 0,
                 "top_chunk_ids": [
-                  "148fca6d-10f6-4b84-88d9-a2a4d1ad8756",
-                  "5700c5de-b199-4004-a3b2-3e13d02d271d"
+                  "a8add3f1-afb6-4bbe-8d12-ee689db26f8f",
+                  "c9d4232b-82c1-4894-a58d-42df6ad73022"
                 ],
                 "note": null
               },
@@ -566,8 +639,8 @@
                 "hit_count": 2,
                 "elapsed_ms": 0,
                 "top_chunk_ids": [
-                  "148fca6d-10f6-4b84-88d9-a2a4d1ad8756",
-                  "5700c5de-b199-4004-a3b2-3e13d02d271d"
+                  "a8add3f1-afb6-4bbe-8d12-ee689db26f8f",
+                  "c9d4232b-82c1-4894-a58d-42df6ad73022"
                 ],
                 "note": null
               },
@@ -576,14 +649,28 @@
                 "hit_count": 0,
                 "elapsed_ms": 0,
                 "top_chunk_ids": [],
-                "note": "no_procedural_chunks"
+                "note": "checked_docs=1 all_duplicates"
               },
               {
                 "name": "relevance_filter",
                 "hit_count": 0,
                 "elapsed_ms": 0,
                 "top_chunk_ids": [],
-                "note": "threshold=0.12 dropped=2"
+                "note": "threshold=0.03 dropped=2"
+              },
+              {
+                "name": "topic_context",
+                "hit_count": 0,
+                "elapsed_ms": 0,
+                "top_chunk_ids": [],
+                "note": "no_kept_context"
+              },
+              {
+                "name": "explicit_heading_context",
+                "hit_count": 0,
+                "elapsed_ms": 0,
+                "top_chunk_ids": [],
+                "note": "no_explicit_token_or_kept_context"
               }
             ],
             "citations": []
@@ -630,7 +717,10 @@
               "step": 3,
               "node": "generate_answer",
               "detail": {
-                "length": 29
+                "length": 86,
+                "status": "fallback",
+                "attempts": 2,
+                "fallback_reason": "no_evidence_selected"
               }
             }
           ],
@@ -638,25 +728,31 @@
             "input_flags": [],
             "output_redactions": []
           },
-          "agent_max_steps": 4
+          "agent_max_steps": 4,
+          "answer_evidence": [],
+          "answer_generation": {
+            "status": "fallback",
+            "attempts": 2,
+            "fallback_reason": "no_evidence_selected"
+          }
         },
-        "created_at": "2026-08-11T05:46:48.326078Z"
+        "created_at": "2026-08-14T07:34:08.954406Z"
       },
       {
         "message_id": 27,
         "role": "user",
         "content": "综合前面说的，我现在该做什么",
-        "trace_id": "6ded69c1777f43d3b0f3b90d3118945a",
+        "trace_id": "85e4ae1fd55b437785a6fbf092117fae",
         "trace": null,
-        "created_at": "2026-08-11T05:46:48.333645Z"
+        "created_at": "2026-08-14T07:34:08.960946Z"
       },
       {
         "message_id": 28,
         "role": "assistant",
-        "content": "结合前面的排查过程：重启已触发，通常 1 分钟内 Pod 会恢复 Running[1]。",
-        "trace_id": "6ded69c1777f43d3b0f3b90d3118945a",
+        "content": "抱歉，根据现有的知识库内容和系统数据，我无法准确回答这个问题。\n\n缺少以下关键信息：\n- 回答证据未能通过逐项校验\n\n建议：请补充可核验的信息后重试，或提交工单转人工处理。",
+        "trace_id": "85e4ae1fd55b437785a6fbf092117fae",
         "trace": {
-          "trace_id": "6ded69c1777f43d3b0f3b90d3118945a",
+          "trace_id": "85e4ae1fd55b437785a6fbf092117fae",
           "total_elapsed_ms": 3,
           "context": {
             "total_turns": 4,
@@ -689,8 +785,8 @@
                 "hit_count": 2,
                 "elapsed_ms": 0,
                 "top_chunk_ids": [
-                  "148fca6d-10f6-4b84-88d9-a2a4d1ad8756",
-                  "5700c5de-b199-4004-a3b2-3e13d02d271d"
+                  "a8add3f1-afb6-4bbe-8d12-ee689db26f8f",
+                  "c9d4232b-82c1-4894-a58d-42df6ad73022"
                 ],
                 "note": null
               },
@@ -706,8 +802,8 @@
                 "hit_count": 2,
                 "elapsed_ms": 0,
                 "top_chunk_ids": [
-                  "148fca6d-10f6-4b84-88d9-a2a4d1ad8756",
-                  "5700c5de-b199-4004-a3b2-3e13d02d271d"
+                  "a8add3f1-afb6-4bbe-8d12-ee689db26f8f",
+                  "c9d4232b-82c1-4894-a58d-42df6ad73022"
                 ],
                 "note": null
               },
@@ -716,8 +812,8 @@
                 "hit_count": 2,
                 "elapsed_ms": 0,
                 "top_chunk_ids": [
-                  "148fca6d-10f6-4b84-88d9-a2a4d1ad8756",
-                  "5700c5de-b199-4004-a3b2-3e13d02d271d"
+                  "a8add3f1-afb6-4bbe-8d12-ee689db26f8f",
+                  "c9d4232b-82c1-4894-a58d-42df6ad73022"
                 ],
                 "note": null
               },
@@ -726,14 +822,28 @@
                 "hit_count": 0,
                 "elapsed_ms": 0,
                 "top_chunk_ids": [],
-                "note": "no_procedural_chunks"
+                "note": "checked_docs=1 all_duplicates"
               },
               {
                 "name": "relevance_filter",
                 "hit_count": 0,
                 "elapsed_ms": 0,
                 "top_chunk_ids": [],
-                "note": "threshold=0.12 dropped=2"
+                "note": "threshold=0.03 dropped=2"
+              },
+              {
+                "name": "topic_context",
+                "hit_count": 0,
+                "elapsed_ms": 0,
+                "top_chunk_ids": [],
+                "note": "no_kept_context"
+              },
+              {
+                "name": "explicit_heading_context",
+                "hit_count": 0,
+                "elapsed_ms": 0,
+                "top_chunk_ids": [],
+                "note": "no_explicit_token_or_kept_context"
               }
             ],
             "citations": []
@@ -780,7 +890,10 @@
               "step": 3,
               "node": "generate_answer",
               "detail": {
-                "length": 44
+                "length": 86,
+                "status": "fallback",
+                "attempts": 2,
+                "fallback_reason": "no_evidence_selected"
               }
             }
           ],
@@ -788,9 +901,15 @@
             "input_flags": [],
             "output_redactions": []
           },
-          "agent_max_steps": 4
+          "agent_max_steps": 4,
+          "answer_evidence": [],
+          "answer_generation": {
+            "status": "fallback",
+            "attempts": 2,
+            "fallback_reason": "no_evidence_selected"
+          }
         },
-        "created_at": "2026-08-11T05:46:48.335002Z"
+        "created_at": "2026-08-14T07:34:08.963069Z"
       }
     ]
   }

@@ -1,13 +1,16 @@
 from abc import ABC, abstractmethod
-from typing import Any, ClassVar, Generic, Optional, TypeVar
+from typing import Annotated, Any, ClassVar, Generic, Optional, TypeVar
 
-from pydantic import BaseModel, ConfigDict, ValidationError
+from pydantic import BaseModel, ConfigDict, StringConstraints, ValidationError
 from sqlalchemy.orm import Session
 
 from app.errors import ErrorCode, ToolError
 
 TArgs = TypeVar("TArgs", bound=BaseModel)
 TResult = TypeVar("TResult", bound=BaseModel)
+NonEmptyToolString = Annotated[
+    str, StringConstraints(strip_whitespace=True, min_length=1)
+]
 
 
 class ToolArgs(BaseModel):
@@ -44,6 +47,9 @@ class Tool(ABC, Generic[TArgs, TResult]):
     args_schema: ClassVar[type[BaseModel]]
     # 只读工具可缓存；写工具永不缓存，靠 request_id 幂等
     cacheable: ClassVar[bool] = False
+    # 这些字段不能由 Router 自行补写，必须能在当前问题或用户历史中定位。
+    # namespace 对所有声明该字段的工具默认强制校验。
+    user_grounded_fields: ClassVar[tuple[str, ...]] = ()
 
     @abstractmethod
     def run(self, args: TArgs, ctx: ToolContext) -> TResult:

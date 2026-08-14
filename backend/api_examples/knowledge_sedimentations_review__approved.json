@@ -6,22 +6,22 @@
     "note": "内容准确，已核对手册"
   },
   "response": {
-    "pending_id": "19bd7a6f-cced-4cc5-9d57-0e86b24e2151",
-    "conversation_id": "4f40e58d-e1f7-43ca-88de-f15dbf05ad4a",
+    "pending_id": "c8e3a7c5-1705-41ef-abb0-39d4b2194f46",
+    "conversation_id": "72d68cbd-6839-4030-9718-fa8b451df294",
     "question": "Pod Pending 怎么处理",
-    "answer": "根据《Pod 生命周期故障排查》[1]，Pending 是因为资源不足导致调度器无法找到合适节点。请检查集群 CPU/内存剩余容量。",
+    "answer": "结论\n- Pending 表示 Pod 还没有被调度到任何节点上，通常是资源不足导致调度器无法为其找到合适的节点，需检查集群 CPU/内存剩余容量。 [K1.A1]\n\n证据步骤\n- 当前证据未提供可验证步骤。",
     "proposed_title": "Pod Pending 排查处理流程",
     "marked_by": "user-regular",
     "status": "approved",
     "review_note": "内容准确，已核对手册",
-    "kb_document_id": "e0f56b7d-c7cd-4080-ae8e-d1dc3599019a",
-    "created_at": "2026-08-11T05:46:48.385206Z",
-    "reviewed_at": "2026-08-11T05:46:51.643732Z",
+    "kb_document_id": "498b4165-5b9c-4e49-bf3b-3961a29a6d34",
+    "created_at": "2026-08-14T07:34:08.997529Z",
+    "reviewed_at": "2026-08-14T07:34:09.019565Z",
     "reviewed_by": "user-admin",
     "auto_approved": false,
     "quality_score": 0.4,
-    "quality_reasoning": "回答提及了 Pending 的常见原因（资源不足）和检查方向（CPU/内存剩余容量），但未给出具体操作步骤（如如何检查资源、如何扩容、如何查看 pending 原因事件等），也未提供命令示例（如 kubectl describe pod、kubectl top nodes），缺乏可操作性；引用文档《Pod 生命周期故障排查》[1] 未提供链接或内容摘要，无法独立使用；属于引导式回答而非自包含解决方案。",
+    "quality_reasoning": "样例固定质量筛选：内容有参考价值但步骤不够完整，保留人工审核。",
     "duplicate_of_document_id": null,
-    "duplicate_score": 0.7844645380973816
+    "duplicate_score": 0.6805446515415325
   }
 }

@@ -4,9 +4,12 @@ _REDACTED = "[已屏蔽]"
 
 # 输出侧兜底：模型若把配置项、密钥、内部路径带出来，在返回前打掉
 _LEAK_PATTERNS: tuple[re.Pattern[str], ...] = (
-    re.compile(r"\b(sk-[A-Za-z0-9]{16,}|dashscope-[A-Za-z0-9]{8,})\b"),
     re.compile(
-        r"\b(API_KEY|QWEN_API_KEY|OLLAMA_API_KEY|DATABASE_URL|QDRANT_PATH)\s*[=:]\s*\S+",
+        r"(?<![A-Za-z0-9._-])sk-(?:ws-)?[A-Za-z0-9._-]{16,}(?![A-Za-z0-9._-])"
+        r"|\bdashscope-[A-Za-z0-9]{8,}\b"
+    ),
+    re.compile(
+        r"\b(API_KEY|QWEN_API_KEY|DEEPSEEK_API_KEY|OLLAMA_API_KEY|DATABASE_URL|QDRANT_PATH)\s*[=:]\s*\S+",
         re.IGNORECASE,
     ),
     # 路径段允许空格("E:\Perfect Project\..."),但不跨行。

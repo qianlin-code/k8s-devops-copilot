@@ -5,14 +5,14 @@
     "question": "Pod Pending 应该怎么排查"
   },
   "response": {
-    "conversation_id": "40356d55-bd22-4638-9f41-c2cc504a7c5d",
+    "conversation_id": "395efebb-81c6-4418-a1ad-dfee9e26d8ef",
     "message_id": 30,
     "outcome": "insufficient_information",
     "answer": "抱歉，根据现有的知识库内容和系统数据，我无法准确回答这个问题。\n\n缺少以下关键信息：\n- 路由判定现有知识与工具均无法覆盖该问题\n\n建议：补充更多信息或提交工单转人工",
     "pending_write": null,
     "trace": {
-      "trace_id": "0684763caf414d6593b5f693ad4c9001",
-      "total_elapsed_ms": 2,
+      "trace_id": "4b21403d8ea148379d9f3ec1543192da",
+      "total_elapsed_ms": 1,
       "context": {
         "total_turns": 0,
         "windowed_turns": 0,
@@ -66,6 +66,20 @@
             "elapsed_ms": 0,
             "top_chunk_ids": [],
             "note": "no_candidates"
+          },
+          {
+            "name": "topic_context",
+            "hit_count": 0,
+            "elapsed_ms": 0,
+            "top_chunk_ids": [],
+            "note": "no_kept_context"
+          },
+          {
+            "name": "explicit_heading_context",
+            "hit_count": 0,
+            "elapsed_ms": 0,
+            "top_chunk_ids": [],
+            "note": "no_explicit_token_or_kept_context"
           }
         ],
         "citations": []
@@ -106,8 +120,10 @@
         "input_flags": [],
         "output_redactions": []
       },
-      "agent_max_steps": 4
+      "agent_max_steps": 4,
+      "answer_evidence": [],
+      "answer_generation": null
     },
-    "created_at": "2026-08-11T05:46:51.676929Z"
+    "created_at": "2026-08-14T07:34:09.099237Z"
   }
 }

@@ -1,5 +1,6 @@
 {
-  "description": "检索与生成质量评估标注集，共 38 条。expected_keywords 命中任一即认为该片段相关，供检索层 Hit@K/MRR 使用。difficulty 用于分层看指标: easy=含文档术语可被 BM25 直接命中; hard=纯口语化或易混淆, 需要语义理解与重排; tool=需要触发工具调用的场景(q31-q38)。gold_answer/expected_outcome/expected_tool 供 scripts/eval_ragas.py 端到端评估使用: gold_answer 是人工撰写的参考答案，用于 context_recall/faithfulness/answer_relevancy; expected_outcome 对应 ChatResponse.outcome 枚举; expected_tool 是期望路由选中的工具名。q01-q30 是不含具体资源名的纯知识性问题，expected_tool 恒为 null，按 app/agent/router.py 的规则会走 direct_answer——这部分只反映『不该调工具时没误调』(knowledge_routing_accuracy)。q31-q38 补充带 user_id 字段的案例，代入真实运维人员视角触发工具调用(只读查询/写操作确认/跨资源查询)，用于验证『该调工具时调对了没』(tool_routing_accuracy)。两组指标含义不同，不要合并成一个数字看。user_id 字段仅供 q31-q38 使用，eval_ragas.py 读取该字段驱动 Agent，未设置时默认用不含资源视角的 EVAL_USER_ID。知识库来源见 data/docs_k8s/（K8s 官方文档节选，CC BY 4.0 授权）。",
+  "version": "2026-08-12-routing-diagnosis-v2",
+  "description": "检索与生成质量评估标注集，共 39 条。expected_keywords 命中任一即认为该片段相关，供检索层 Hit@K/MRR 使用。difficulty 用于分层看指标: easy=含文档术语可被 BM25 直接命中; hard=纯口语化或易混淆, 需要语义理解与重排; tool=需要触发工具调用的场景(q31-q38，含 q35b)。gold_answer/expected_outcome/expected_tool 供 scripts/eval_ragas.py 端到端评估使用: gold_answer 是人工撰写的参考答案，用于 context_recall/faithfulness/answer_relevancy; expected_outcome 对应 ChatResponse.outcome 枚举; expected_tool 是期望路由选中的工具名。q01-q30 是不含具体资源名的纯知识性问题，expected_tool 恒为 null，按 app/agent/router.py 的规则会走 direct_answer——这部分只反映『不该调工具时没误调』(knowledge_routing_accuracy)。q31-q38 补充带 user_id 字段的案例，代入真实运维人员视角触发工具调用(只读查询/写操作确认/跨资源查询)，用于验证『该调工具时调对了没』(tool_routing_accuracy)。两组指标含义不同，不要合并成一个数字看。user_id 字段仅供 q31-q38 使用，eval_ragas.py 读取该字段驱动 Agent，未设置时默认用不含资源视角的 EVAL_USER_ID。知识库来源见 data/docs_k8s/（K8s 官方文档节选，CC BY 4.0 授权）。",
   "cases": [
     {
       "id": "q01",
@@ -184,10 +185,10 @@
     {
       "id": "q19",
       "query": "改完权限绑定要重启什么东西才生效吗",
-      "expected_keywords": ["RoleBinding", "无需重启"],
+      "expected_keywords": ["Kubernetes API", "RoleBinding", "auth can-i"],
       "difficulty": "hard",
-      "note": "考察是否命中运维约束细节",
-      "gold_answer": "RBAC 权限绑定是即时生效的 API 对象变更，不需要重启任何组件，改完后直接用 kubectl auth can-i 验证即可。",
+      "note": "考察 RBAC 动态配置、绑定授权与实际权限验证；不对生效时延或重启要求作无来源承诺",
+      "gold_answer": "RBAC 策略通过 Kubernetes API 动态配置，RoleBinding/ClusterRoleBinding 向其 subjects 授予角色权限。修改绑定后用 kubectl auth can-i <verb> <resource> --as=<用户或 ServiceAccount> 验证该身份的实际授权结果；本评测不对生效时延或组件重启要求作额外承诺。",
       "expected_outcome": "direct_answer",
       "expected_tool": null
     },
@@ -336,7 +337,7 @@
     },
     {
       "id": "q34",
-      "query": "worker-queue 的配置已经修好了，麻烦帮我重启一下",
+      "query": "ops-demo 下 worker-queue 的配置已经修好了，麻烦帮我重启一下",
       "user_id": "ops-1",
       "expected_keywords": ["重启", "滚动"],
       "difficulty": "tool",
@@ -349,10 +350,21 @@
       "id": "q35",
       "query": "这个问题知识库里没有答案，帮我提个告警工单转人工处理，标题写“调度器异常排查”",
       "user_id": "ops-1",
+      "expected_keywords": [],
+      "difficulty": "tool",
+      "note": "缺字段写操作契约：用户只给标题，必须追问 namespace 与不少于 10 个字符的 description；不得默认 namespace、不得创建确认令牌或执行写入。",
+      "gold_answer": "创建告警工单前需要补充所属命名空间和至少 10 个字符的问题描述；补齐后才会展示待确认的写操作。",
+      "expected_outcome": "insufficient_information",
+      "expected_tool": "create_incident"
+    },
+    {
+      "id": "q35b",
+      "query": "请在 ops-demo 创建告警工单，标题是“调度器异常排查”，描述是“调度器持续报错，需要人工排查根因”，优先级 high",
+      "user_id": "ops-1",
       "expected_keywords": ["告警", "工单"],
       "difficulty": "tool",
-      "note": "工具路由案例：用户明确要求创建告警工单，属于写操作需确认",
-      "gold_answer": "创建告警工单是写操作，需要先向用户确认标题、描述与优先级，确认后才会真正创建。",
+      "note": "完整写操作契约：业务字段完整时可由服务端生成 request_id 并进入确认；评测期间不得执行写入。",
+      "gold_answer": "创建告警工单是写操作，系统应展示 ops-demo 中“调度器异常排查”的待确认操作，确认后才会创建。",
       "expected_outcome": "write_confirmation_required",
       "expected_tool": "create_incident"
     },
@@ -369,7 +381,7 @@
     },
     {
       "id": "q37",
-      "query": "billing-sync 这个 Deployment 现在副本数为 0 能直接重启吗",
+      "query": "ops-demo 下 billing-sync 这个 Deployment 现在副本数为 0，能直接重启吗",
       "user_id": "ops-1",
       "expected_keywords": ["available_replicas", "无法执行"],
       "difficulty": "tool",

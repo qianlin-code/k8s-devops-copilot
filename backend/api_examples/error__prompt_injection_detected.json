@@ -7,7 +7,7 @@
   "response": {
     "code": "PROMPT_INJECTION_DETECTED",
     "message": "Input rejected: it contains instructions that attempt to override the assistant's configured behaviour",
-    "trace_id": "df592007226b40ffbe91b62601873dda",
+    "trace_id": "0b910878729245f2bdfa2142ee2e69b4",
     "retryable": false,
     "details": {
       "pattern": "override_instructions"

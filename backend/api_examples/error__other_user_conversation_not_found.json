@@ -3,15 +3,15 @@
   "http_status": 404,
   "request": {
     "question": "继续",
-    "conversation_id": "4f40e58d-e1f7-43ca-88de-f15dbf05ad4a"
+    "conversation_id": "72d68cbd-6839-4030-9718-fa8b451df294"
   },
   "response": {
     "code": "RESOURCE_NOT_FOUND",
-    "message": "Conversation '4f40e58d-e1f7-43ca-88de-f15dbf05ad4a' not found",
-    "trace_id": "287d718bb71345c3bfe5f5f637761468",
+    "message": "Conversation '72d68cbd-6839-4030-9718-fa8b451df294' not found",
+    "trace_id": "02a333c387ca4086b7b9f8db7e4ee3c8",
     "retryable": false,
     "details": {
-      "conversation_id": "4f40e58d-e1f7-43ca-88de-f15dbf05ad4a"
+      "conversation_id": "72d68cbd-6839-4030-9718-fa8b451df294"
     }
   }
 }

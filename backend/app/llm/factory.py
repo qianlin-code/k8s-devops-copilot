@@ -9,6 +9,12 @@ from app.llm.embedding import EmbeddingClient
 def _chat_credentials(settings: Settings) -> tuple[str, str, str]:
     if settings.llm_provider is Provider.QWEN:
         return settings.qwen_base_url, settings.qwen_api_key, settings.qwen_chat_model
+    if settings.llm_provider is Provider.DEEPSEEK:
+        return (
+            settings.deepseek_base_url,
+            settings.deepseek_api_key,
+            settings.deepseek_chat_model,
+        )
     return settings.ollama_base_url, settings.ollama_api_key, settings.ollama_chat_model
 
 
@@ -32,7 +38,12 @@ def _embedding_credentials(settings: Settings) -> tuple[str, str, str, int]:
 def get_llm_client() -> LLMClient:
     settings = get_settings()
     base_url, api_key, model = _chat_credentials(settings)
-    return LLMClient(base_url=base_url, api_key=api_key, model=model)
+    return LLMClient(
+        base_url=base_url,
+        api_key=api_key,
+        model=model,
+        provider=settings.llm_provider,
+    )
 
 
 @lru_cache
@@ -60,6 +71,7 @@ def get_judge_client() -> LLMClient:
         base_url=settings.qwen_base_url,
         api_key=settings.qwen_api_key,
         model=settings.qwen_judge_model,
+        provider=Provider.QWEN,
     )
 
 
@@ -76,6 +88,7 @@ def get_sedimentation_client() -> LLMClient:
         base_url=settings.qwen_base_url,
         api_key=settings.qwen_api_key,
         model=settings.qwen_sedimentation_model,
+        provider=Provider.QWEN,
     )
 
 

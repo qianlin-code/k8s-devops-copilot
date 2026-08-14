@@ -13,6 +13,30 @@ export interface AgentStepTrace {
   detail?: Record<string, unknown>
 }
 
+export interface AnswerEvidenceTrace {
+  item_index: number
+  /** conclusion / evidence_step */
+  section: string
+  /** knowledge / tool */
+  evidence_kind: string
+  source_id: string
+  rendered_text: string
+  chunk_id?: null | string
+  citation_label?: null | string
+  exact_quote?: null | string
+  tool_name?: null | string
+  invocation_index?: null | number
+  json_pointer?: null | string
+  serialized_value?: null | string
+}
+
+export interface AnswerGenerationTrace {
+  /** verified / fallback */
+  status: string
+  attempts: number
+  fallback_reason?: null | string
+}
+
 export interface ChatRequest {
   /** 用户的自然语言问题 */
   question: string
@@ -163,6 +187,8 @@ export interface ExecutionTrace {
   steps: AgentStepTrace[]
   security: SecurityTrace
   agent_max_steps: number
+  answer_evidence?: AnswerEvidenceTrace[]
+  answer_generation?: AnswerGenerationTrace | null
 }
 
 /** 存活探针。无需鉴权，所以生产环境不返回内部拓扑。 */

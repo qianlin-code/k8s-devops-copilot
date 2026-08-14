@@ -5,14 +5,14 @@
     "question": "公司的年会安排在什么时候"
   },
   "response": {
-    "conversation_id": "e592f5a3-3599-42ca-88bb-31c63a5ccaa6",
+    "conversation_id": "31b39fa7-a748-4bd3-a222-943db920a6c7",
     "message_id": 14,
     "outcome": "insufficient_information",
     "answer": "抱歉，根据现有的知识库内容和系统数据，我无法准确回答这个问题。\n\n缺少以下关键信息：\n- 路由判定现有知识与工具均无法覆盖该问题\n\n建议：请说明具体的命名空间和资源名称",
     "pending_write": null,
     "trace": {
-      "trace_id": "fffbb6db7d434390902dd7ab14f1639c",
-      "total_elapsed_ms": 3,
+      "trace_id": "00d57d2029cf4fffaee3f66a5d048734",
+      "total_elapsed_ms": 2,
       "context": {
         "total_turns": 0,
         "windowed_turns": 0,
@@ -44,8 +44,8 @@
             "hit_count": 2,
             "elapsed_ms": 0,
             "top_chunk_ids": [
-              "148fca6d-10f6-4b84-88d9-a2a4d1ad8756",
-              "5700c5de-b199-4004-a3b2-3e13d02d271d"
+              "a8add3f1-afb6-4bbe-8d12-ee689db26f8f",
+              "c9d4232b-82c1-4894-a58d-42df6ad73022"
             ],
             "note": null
           },
@@ -61,8 +61,8 @@
             "hit_count": 2,
             "elapsed_ms": 0,
             "top_chunk_ids": [
-              "148fca6d-10f6-4b84-88d9-a2a4d1ad8756",
-              "5700c5de-b199-4004-a3b2-3e13d02d271d"
+              "a8add3f1-afb6-4bbe-8d12-ee689db26f8f",
+              "c9d4232b-82c1-4894-a58d-42df6ad73022"
             ],
             "note": null
           },
@@ -71,8 +71,8 @@
             "hit_count": 2,
             "elapsed_ms": 0,
             "top_chunk_ids": [
-              "148fca6d-10f6-4b84-88d9-a2a4d1ad8756",
-              "5700c5de-b199-4004-a3b2-3e13d02d271d"
+              "a8add3f1-afb6-4bbe-8d12-ee689db26f8f",
+              "c9d4232b-82c1-4894-a58d-42df6ad73022"
             ],
             "note": null
           },
@@ -81,14 +81,28 @@
             "hit_count": 0,
             "elapsed_ms": 0,
             "top_chunk_ids": [],
-            "note": "no_procedural_chunks"
+            "note": "checked_docs=1 all_duplicates"
           },
           {
             "name": "relevance_filter",
             "hit_count": 0,
             "elapsed_ms": 0,
             "top_chunk_ids": [],
-            "note": "threshold=0.12 dropped=2"
+            "note": "threshold=0.03 dropped=2"
+          },
+          {
+            "name": "topic_context",
+            "hit_count": 0,
+            "elapsed_ms": 0,
+            "top_chunk_ids": [],
+            "note": "no_kept_context"
+          },
+          {
+            "name": "explicit_heading_context",
+            "hit_count": 0,
+            "elapsed_ms": 0,
+            "top_chunk_ids": [],
+            "note": "no_explicit_token_or_kept_context"
           }
         ],
         "citations": []
@@ -129,8 +143,10 @@
         "input_flags": [],
         "output_redactions": []
       },
-      "agent_max_steps": 4
+      "agent_max_steps": 4,
+      "answer_evidence": [],
+      "answer_generation": null
     },
-    "created_at": "2026-08-11T05:46:48.201794Z"
+    "created_at": "2026-08-14T07:34:08.900358Z"
   }
 }

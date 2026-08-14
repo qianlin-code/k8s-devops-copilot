@@ -5,7 +5,7 @@
   "response": {
     "code": "RESOURCE_NOT_FOUND",
     "message": "Conversation 'does-not-exist' not found",
-    "trace_id": "ae76c6d15cb4478bb30ab96334f59e47",
+    "trace_id": "ebab44e743a8471f874e6021efb66d65",
     "retryable": false,
     "details": {
       "conversation_id": "does-not-exist"

@@ -3,6 +3,8 @@ from app.agent.state_machine import AgentRunResult
 from app.rag.retriever import RetrievalResult
 from app.schemas.trace import (
     AgentStepTrace,
+    AnswerEvidenceTrace,
+    AnswerGenerationTrace,
     CitationTrace,
     ContextTrace,
     ExecutionTrace,
@@ -119,4 +121,34 @@ def build_execution_trace(
             input_flags=input_flags, output_redactions=output_redactions
         ),
         agent_max_steps=agent_max_steps,
+        answer_evidence=(
+            [
+                AnswerEvidenceTrace(
+                    item_index=item.item_index,
+                    section=item.section,
+                    evidence_kind=item.evidence_kind,
+                    source_id=item.source_id,
+                    rendered_text=item.rendered_text,
+                    chunk_id=item.chunk_id,
+                    citation_label=item.citation_label,
+                    exact_quote=item.exact_quote,
+                    tool_name=item.tool_name,
+                    invocation_index=item.invocation_index,
+                    json_pointer=item.json_pointer,
+                    serialized_value=item.serialized_value,
+                )
+                for item in agent.verified_answer.evidence
+            ]
+            if agent.verified_answer is not None
+            else []
+        ),
+        answer_generation=(
+            AnswerGenerationTrace(
+                status=agent.verified_answer.status,
+                attempts=agent.verified_answer.attempts,
+                fallback_reason=agent.verified_answer.fallback_reason,
+            )
+            if agent.verified_answer is not None
+            else None
+        ),
     )

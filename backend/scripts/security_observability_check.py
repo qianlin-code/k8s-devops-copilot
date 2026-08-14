@@ -17,7 +17,7 @@ ROOT = Path(__file__).resolve().parents[1]
 # These markers are intentionally high-confidence. Generic names such as
 # "password" are not secrets by themselves and would make a report misleading.
 SECRET_PATTERNS: tuple[tuple[str, re.Pattern[str]], ...] = (
-    ("openai", re.compile(r"\bsk-[A-Za-z0-9_-]{20,}\b")),
+    ("api_key", re.compile(r"(?<![A-Za-z0-9._-])sk-(?:ws-)?[A-Za-z0-9._-]{20,}(?![A-Za-z0-9._-])")),
     ("github_pat", re.compile(r"\bgithub_pat_[A-Za-z0-9_]{20,}\b")),
     ("github", re.compile(r"\bgh[pousr]_[A-Za-z0-9]{20,}\b")),
     ("aws_access_key", re.compile(r"\bAKIA[0-9A-Z]{16}\b")),
@@ -64,9 +64,13 @@ def _scan(paths: list[Path]) -> tuple[int, list[dict[str, object]]]:
             for kind, pattern in SECRET_PATTERNS:
                 if pattern.search(line):
                     # Never retain the matching value; location and category are enough to remediate.
+                    try:
+                        reported_path = path.relative_to(ROOT)
+                    except ValueError:
+                        reported_path = path
                     findings.append(
                         {
-                            "path": str(path.relative_to(ROOT)).replace("\\", "/"),
+                            "path": str(reported_path).replace("\\", "/"),
                             "line": line_number,
                             "kind": kind,
                             "value": "[REDACTED]",

@@ -12,6 +12,7 @@ _MIN_PROD_JWT_SECRET_LENGTH = 32
 class Provider(str, Enum):
     OLLAMA = "ollama"
     QWEN = "qwen"
+    DEEPSEEK = "deepseek"
 
 
 class ChunkStrategyName(str, Enum):
@@ -40,20 +41,25 @@ class Settings(BaseSettings):
     jwt_algorithm: str = "HS256"
     jwt_access_token_expire_hours: int = Field(default=8, ge=1, le=720)  # 1小时~30天
 
-    llm_provider: Provider = Provider.OLLAMA
+    # v1.0 发布组合使用 DeepSeek V4 Pro；Ollama 仍可通过环境变量显式启用。
+    llm_provider: Provider = Provider.DEEPSEEK
     ollama_base_url: str = "http://localhost:11434/v1"
     ollama_api_key: str = "ollama"
     ollama_chat_model: str = "qwen2.5:7b"
     qwen_base_url: str = "https://dashscope.aliyuncs.com/compatible-mode/v1"
     qwen_api_key: str = ""
     qwen_chat_model: str = "qwen-plus"
+    deepseek_base_url: str = "https://api.deepseek.com"
+    deepseek_api_key: str = ""
+    deepseek_chat_model: str = "deepseek-v4-pro"
     # RAGAS 风格评估的裁判模型：固定用云端强模型，不受 LLM_PROVIDER 影响。
     # 本地 7B 模型自评自己生成的答案，噪声大且不可信，裁判必须独立于被测链路。
     qwen_judge_model: str = "qwen-max"
     # 沉淀质量初筛：成本优先，用于去重+质量打分，不追求裁判级准确度。
     qwen_sedimentation_model: str = "qwen-plus"
 
-    embedding_provider: Provider = Provider.QWEN
+    # Embedding 保持本地 BGE，避免生成模型切换同时改变检索变量。
+    embedding_provider: Provider = Provider.OLLAMA
     ollama_embedding_model: str = "bge-m3"
     ollama_embedding_dim: int = 1024
     qwen_embedding_model: str = "text-embedding-v3"
@@ -93,6 +99,9 @@ class Settings(BaseSettings):
     # 本就高于 0.15，不受此项调整影响；faithfulness 0.354→0.492，
     # answer_relevancy 0.415→0.485，无新增路由退化。历史实验见 docs/评测与失败案例.md。
     min_rerank_score: float = Field(default=0.12, ge=0.0, le=1.0)
+    # 仅限无实时资源目标、无写操作意图的知识问答。工具及写操作保持 min_rerank_score，
+    # 确保检索为空分支和低相关实时请求的保护不被全局降阈值破坏。
+    knowledge_min_rerank_score: float = Field(default=0.03, ge=0.0, le=1.0)
     enable_hybrid_retrieve: bool = True
     enable_query_rewrite: bool = True
     rrf_k: int = Field(default=60, ge=1)
@@ -115,8 +124,12 @@ class Settings(BaseSettings):
             raise ValueError("chunk_overlap must be smaller than chunk_size")
         if self.llm_provider is Provider.QWEN and not self.qwen_api_key:
             raise ValueError("QWEN_API_KEY is required when LLM_PROVIDER=qwen")
+        if self.llm_provider is Provider.DEEPSEEK and not self.deepseek_api_key:
+            raise ValueError("DEEPSEEK_API_KEY is required when LLM_PROVIDER=deepseek")
         if self.embedding_provider is Provider.QWEN and not self.qwen_api_key:
             raise ValueError("QWEN_API_KEY is required when EMBEDDING_PROVIDER=qwen")
+        if self.embedding_provider is Provider.DEEPSEEK:
+            raise ValueError("EMBEDDING_PROVIDER does not support deepseek")
         if self.environment is Environment.PROD:
             self._validate_production()
         return self

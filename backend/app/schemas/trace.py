@@ -94,6 +94,27 @@ class SecurityTrace(StrictBaseModel):
     output_redactions: list[str] = Field(default_factory=list)
 
 
+class AnswerEvidenceTrace(StrictBaseModel):
+    item_index: int
+    section: str = Field(description="conclusion / evidence_step")
+    evidence_kind: str = Field(description="knowledge / tool")
+    source_id: str
+    rendered_text: str
+    chunk_id: Optional[str] = None
+    citation_label: Optional[str] = None
+    exact_quote: Optional[str] = None
+    tool_name: Optional[str] = None
+    invocation_index: Optional[int] = None
+    json_pointer: Optional[str] = None
+    serialized_value: Optional[str] = None
+
+
+class AnswerGenerationTrace(StrictBaseModel):
+    status: str = Field(description="verified / fallback")
+    attempts: int
+    fallback_reason: Optional[str] = None
+
+
 class ExecutionTrace(StrictBaseModel):
     """接口响应里的完整链路，前端直接渲染，无需翻后台日志。"""
 
@@ -107,3 +128,5 @@ class ExecutionTrace(StrictBaseModel):
     steps: list[AgentStepTrace]
     security: SecurityTrace
     agent_max_steps: int
+    answer_evidence: list[AnswerEvidenceTrace] = Field(default_factory=list)
+    answer_generation: Optional[AnswerGenerationTrace] = None

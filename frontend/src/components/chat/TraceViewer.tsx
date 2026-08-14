@@ -258,8 +258,50 @@ function RetrievalTab({ trace }: { trace: ExecutionTrace }) {
 }
 
 function AgentTab({ trace }: { trace: ExecutionTrace }) {
+  const evidence = trace.answer_evidence ?? []
   return (
     <>
+      <section className="block">
+        <h4>
+          回答证据映射 ({evidence.length})
+          {trace.answer_generation ? (
+            <span className={trace.answer_generation.status === 'verified' ? 'tag ok' : 'tag warn'}>
+              {trace.answer_generation.status === 'verified' ? '已验证' : '已降级'}
+            </span>
+          ) : null}
+        </h4>
+        {trace.answer_generation ? (
+          <p className="dim">
+            结构化生成 {trace.answer_generation.attempts} 次
+            {trace.answer_generation.fallback_reason
+              ? `，原因：${trace.answer_generation.fallback_reason}`
+              : ''}
+          </p>
+        ) : null}
+        {evidence.length === 0 ? (
+          <p className="dim">该历史回答未记录逐项证据。</p>
+        ) : (
+          <ol className="answer-evidence">
+            {evidence.map((item) => (
+              <li key={`${item.item_index}-${item.source_id}`}>
+                <header>
+                  <span className="cite-no">[{item.source_id}]</span>
+                  <span className="tag">
+                    {item.section === 'conclusion' ? '结论' : '证据步骤'}
+                  </span>
+                  <span className="evidence-origin">
+                    {item.evidence_kind === 'knowledge'
+                      ? item.citation_label
+                      : `${item.tool_name ?? '工具'}${item.json_pointer ?? ''}`}
+                  </span>
+                </header>
+                <p>{item.rendered_text}</p>
+              </li>
+            ))}
+          </ol>
+        )}
+      </section>
+
       <section className="block">
         <h4>
           路由决策 ({trace.route_decisions.length} / 上限 {trace.agent_max_steps} 轮)

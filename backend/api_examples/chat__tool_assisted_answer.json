@@ -5,14 +5,14 @@
     "question": "查一下 ops-demo 下 api-gateway-7f9c 这个 Pod 的状态，一直是 Pending"
   },
   "response": {
-    "conversation_id": "27fbcdfd-dffe-4d0e-a717-5c81e238715c",
+    "conversation_id": "641f6d9f-d65c-496b-b5af-885bed67f5d3",
     "message_id": 6,
     "outcome": "tool_assisted_answer",
-    "answer": "已查到 ops-demo/api-gateway-7f9c 当前状态为 Pending，原因是资源不足[1]。",
+    "answer": "结论\n- ops-demo/api-gateway-7f9c 当前状态为 Pending，reason 为 Unschedulable: Insufficient cpu，已重启 0 次。 [T1.A2]\n\n证据步骤\n- 当前证据未提供可验证步骤。",
     "pending_write": null,
     "trace": {
-      "trace_id": "fece7bbc8e9346e2815e5a7c5f032d4a",
-      "total_elapsed_ms": 5,
+      "trace_id": "e782fedc849a448c8f0ad9b563dee5d3",
+      "total_elapsed_ms": 8,
       "context": {
         "total_turns": 0,
         "windowed_turns": 0,
@@ -44,8 +44,8 @@
             "hit_count": 2,
             "elapsed_ms": 0,
             "top_chunk_ids": [
-              "5700c5de-b199-4004-a3b2-3e13d02d271d",
-              "148fca6d-10f6-4b84-88d9-a2a4d1ad8756"
+              "c9d4232b-82c1-4894-a58d-42df6ad73022",
+              "a8add3f1-afb6-4bbe-8d12-ee689db26f8f"
             ],
             "note": null
           },
@@ -61,8 +61,8 @@
             "hit_count": 2,
             "elapsed_ms": 0,
             "top_chunk_ids": [
-              "5700c5de-b199-4004-a3b2-3e13d02d271d",
-              "148fca6d-10f6-4b84-88d9-a2a4d1ad8756"
+              "c9d4232b-82c1-4894-a58d-42df6ad73022",
+              "a8add3f1-afb6-4bbe-8d12-ee689db26f8f"
             ],
             "note": null
           },
@@ -71,8 +71,8 @@
             "hit_count": 2,
             "elapsed_ms": 0,
             "top_chunk_ids": [
-              "5700c5de-b199-4004-a3b2-3e13d02d271d",
-              "148fca6d-10f6-4b84-88d9-a2a4d1ad8756"
+              "c9d4232b-82c1-4894-a58d-42df6ad73022",
+              "a8add3f1-afb6-4bbe-8d12-ee689db26f8f"
             ],
             "note": null
           },
@@ -81,7 +81,7 @@
             "hit_count": 0,
             "elapsed_ms": 0,
             "top_chunk_ids": [],
-            "note": "no_procedural_chunks"
+            "note": "checked_docs=1 all_duplicates"
           },
           {
             "name": "relevance_filter",
@@ -89,6 +89,20 @@
             "elapsed_ms": 0,
             "top_chunk_ids": [],
             "note": "threshold=0.12 dropped=2"
+          },
+          {
+            "name": "topic_context",
+            "hit_count": 0,
+            "elapsed_ms": 0,
+            "top_chunk_ids": [],
+            "note": "no_kept_context"
+          },
+          {
+            "name": "explicit_heading_context",
+            "hit_count": 0,
+            "elapsed_ms": 0,
+            "top_chunk_ids": [],
+            "note": "no_explicit_token_or_kept_context"
           }
         ],
         "citations": []
@@ -116,6 +130,7 @@
           },
           "success": true,
           "result": {
+            "answer_summary": "ops-demo/api-gateway-7f9c 当前状态为 Pending，reason 为 Unschedulable: Insufficient cpu，已重启 0 次。",
             "namespace": "ops-demo",
             "name": "api-gateway-7f9c",
             "phase": "Pending",
@@ -128,15 +143,10 @@
           "error_message": null,
           "cache_hit": false,
           "idempotent_replay": false,
-          "elapsed_ms": 0
+          "elapsed_ms": 1
         }
       ],
-      "sufficiency": {
-        "sufficient": true,
-        "reasoning": "已取得 Pod 状态，可以给出结论",
-        "missing_information": [],
-        "suggested_next_step": null
-      },
+      "sufficiency": null,
       "steps": [
         {
           "step": 1,
@@ -159,23 +169,17 @@
             "cache_hit": false,
             "idempotent_replay": false,
             "error_code": null,
-            "elapsed_ms": 0
+            "elapsed_ms": 1
           }
         },
         {
           "step": 3,
-          "node": "verify_sufficiency",
-          "detail": {
-            "sufficient": true,
-            "reasoning": "已取得 Pod 状态，可以给出结论",
-            "missing_information": []
-          }
-        },
-        {
-          "step": 4,
           "node": "generate_answer",
           "detail": {
-            "length": 55
+            "length": 124,
+            "status": "verified",
+            "attempts": 2,
+            "fallback_reason": null
           }
         }
       ],
@@ -183,8 +187,29 @@
         "input_flags": [],
         "output_redactions": []
       },
-      "agent_max_steps": 4
+      "agent_max_steps": 4,
+      "answer_evidence": [
+        {
+          "item_index": 1,
+          "section": "conclusion",
+          "evidence_kind": "tool",
+          "source_id": "T1.A2",
+          "rendered_text": "ops-demo/api-gateway-7f9c 当前状态为 Pending，reason 为 Unschedulable: Insufficient cpu，已重启 0 次。",
+          "chunk_id": null,
+          "citation_label": null,
+          "exact_quote": null,
+          "tool_name": "get_pod_status",
+          "invocation_index": 1,
+          "json_pointer": "/answer_summary",
+          "serialized_value": "ops-demo/api-gateway-7f9c 当前状态为 Pending，reason 为 Unschedulable: Insufficient cpu，已重启 0 次。"
+        }
+      ],
+      "answer_generation": {
+        "status": "verified",
+        "attempts": 2,
+        "fallback_reason": null
+      }
     },
-    "created_at": "2026-08-11T05:46:48.152791Z"
+    "created_at": "2026-08-14T07:34:08.842133Z"
   }
 }

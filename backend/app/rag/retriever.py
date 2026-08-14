@@ -1,3 +1,4 @@
+import re
 import time
 from dataclasses import dataclass, field
 
@@ -28,6 +29,15 @@ class RetrievalResult:
     stages: list[RetrievalStage]
     hybrid_enabled: bool
     rerank_applied: bool
+    # 仅用于 trace/离线诊断。保留各层的原始候选，使阈值过滤问题不会被
+    # 误判为向量、BM25、RRF 或 rerank 本身没有召回。
+    vector_hits: list[ScoredChunk] = field(default_factory=list)
+    bm25_hits: list[ScoredChunk] = field(default_factory=list)
+    fused_chunks: list[FusedChunk] = field(default_factory=list)
+    reranked_chunks: list[RerankedChunk] = field(default_factory=list)
+    # 仅用于 trace/离线评测诊断，保留阈值过滤前的 Rerank 输出；回答和引用仍只
+    # 使用 chunks，不能让被阈值拒绝的片段重新进入生成上下文。
+    pre_filter_chunks: list[RerankedChunk] = field(default_factory=list)
 
     @property
     def is_empty(self) -> bool:
@@ -127,12 +137,14 @@ class Retriever:
         reranked, rerank_applied = self._rerank(
             search_query, fused, top_n, stages, enable_rerank
         )
+        reranked_chunks = list(reranked)
 
-        # 关联召回：命中"处理步骤" chunk 时，连带召回同文档的"现象/根因"段
+        # 关联召回：为 Top-N 中的主题准备同文档候选，阈值后只允许锚定主题补证。
         if reranked:
             reranked = self._associated_recall(reranked, stages)
 
         # 只有真正经过 rerank 打分才做阈值过滤：降级路径的分数是 RRF 值，量纲不同
+        pre_filter_chunks = list(reranked)
         if rerank_applied and reranked:
             threshold = (
                 settings.min_rerank_score
@@ -150,12 +162,37 @@ class Retriever:
             )
             reranked = kept
 
+        # 最终证据必须能解释命中的故障，而不只是复述一个现象。仅从已经进入
+        # Rerank Top-N 的候选中，补回与阈值命中项同文档、同故障主题的兄弟小节。
+        # 阈值命中项仍是锚点；没有锚点、跨文档或跨主题的低分内容都不能进入回答。
+        reranked = _restore_topic_context(
+            candidates=pre_filter_chunks,
+            kept=reranked,
+            stages=stages,
+        )
+
+        # 阈值只决定主要相关证据。若用户在问题里明确写出了英文资源/状态标识，
+        # 则允许从已经进入 Rerank Top-N 的候选中补回标题精确命中的同文档片段。
+        # 这不是绕过召回或扩展任意低分内容：候选必须已被 Rerank 选入 Top-N，
+        # 标题必须包含用户原文中的标识，且文档必须已有一条通过阈值的证据。
+        reranked = _restore_explicit_heading_context(
+            query=query,
+            candidates=reranked_chunks,
+            kept=reranked,
+            stages=stages,
+        )
+
         return RetrievalResult(
             query_rewrite=rewrite,
             chunks=reranked,
             stages=stages,
             hybrid_enabled=use_hybrid,
             rerank_applied=rerank_applied,
+            vector_hits=vector_hits,
+            bm25_hits=bm25_hits,
+            fused_chunks=fused,
+            reranked_chunks=reranked_chunks,
+            pre_filter_chunks=pre_filter_chunks,
         )
 
     def _vector_search(
@@ -259,34 +296,29 @@ class Retriever:
     def _associated_recall(
         self, reranked: list[RerankedChunk], stages: list[RetrievalStage]
     ) -> list[RerankedChunk]:
-        """关联召回：命中"处理步骤" chunk 时，连带召回同文档的其他段落。
-
-        K8s 文档结构"现象/根因/处理步骤"三段式，路由看到孤立的操作指令易误判。
-        补充同文档的"现象/根因"段，让路由能判断"操作步骤"是否匹配当前问题。
-        """
+        """加载 Top-N 所在文档的候选，最终只恢复阈值锚定的同主题兄弟。"""
         started = time.perf_counter()
 
-        # 收集所有标记为 is_procedural 的 chunk 的 document_id
-        procedural_docs = {
+        candidate_docs = {
             r.chunk.document_id
             for r in reranked
-            if r.chunk.is_procedural and r.chunk.document_id
+            if r.chunk.document_id
         }
 
-        if not procedural_docs:
+        if not candidate_docs:
             stages.append(
                 RetrievalStage(
                     name="associated_recall",
                     hit_count=0,
                     elapsed_ms=_ms_since(started),
-                    note="no_procedural_chunks",
+                    note="no_candidate_documents",
                 )
             )
             return reranked
 
         # 召回这些文档的所有 chunk
         associated: list[ScoredChunk] = []
-        for doc_id in procedural_docs:
+        for doc_id in candidate_docs:
             try:
                 chunks = self._store.get_chunks_by_document(doc_id)
                 associated.extend(chunks)
@@ -303,7 +335,7 @@ class Retriever:
                     name="associated_recall",
                     hit_count=0,
                     elapsed_ms=_ms_since(started),
-                    note=f"checked_docs={len(procedural_docs)} all_duplicates",
+                    note=f"checked_docs={len(candidate_docs)} all_duplicates",
                 )
             )
             return reranked
@@ -325,7 +357,7 @@ class Retriever:
                 name="associated_recall",
                 hit_count=len(associated_reranked),
                 elapsed_ms=_ms_since(started),
-                note=f"docs={len(procedural_docs)} added={len(associated_reranked)}",
+                note=f"docs={len(candidate_docs)} added={len(associated_reranked)}",
                 top_chunk_ids=[c.chunk_id for c in new_chunks[:5]],
             )
         )
@@ -336,3 +368,118 @@ class Retriever:
 
 def _ms_since(started: float) -> int:
     return int((time.perf_counter() - started) * 1000)
+
+
+
+
+def _restore_explicit_heading_context(
+    *,
+    query: str,
+    candidates: list[RerankedChunk],
+    kept: list[RerankedChunk],
+    stages: list[RetrievalStage],
+) -> list[RerankedChunk]:
+    """Restore Rerank Top-N context anchored by identifiers in the user query."""
+    tokens = {
+        token.casefold()
+        for token in re.findall(r"[A-Za-z][A-Za-z0-9-]{2,}", query)
+    }
+    if not tokens or not kept:
+        stages.append(
+            RetrievalStage(
+                name="explicit_heading_context",
+                hit_count=0,
+                elapsed_ms=0,
+                note="no_explicit_token_or_kept_context",
+            )
+        )
+        return kept
+
+    kept_ids = {item.chunk.chunk_id for item in kept}
+    kept_documents = {item.chunk.document_id for item in kept}
+    additions: list[RerankedChunk] = []
+    for item in candidates:
+        if item.chunk.chunk_id in kept_ids:
+            continue
+        if item.chunk.document_id not in kept_documents:
+            continue
+        heading = " > ".join(item.chunk.heading_path).casefold()
+        if any(token in heading for token in tokens):
+            additions.append(item)
+            kept_ids.add(item.chunk.chunk_id)
+
+    stages.append(
+        RetrievalStage(
+            name="explicit_heading_context",
+            hit_count=len(additions),
+            elapsed_ms=0,
+            note=(
+                "tokens=" + ",".join(sorted(tokens))
+                if additions
+                else "no_matching_rerank_top_n_heading"
+            ),
+            top_chunk_ids=[item.chunk.chunk_id for item in additions[:5]],
+        )
+    )
+    return kept + additions
+
+
+def _restore_topic_context(
+    *,
+    candidates: list[RerankedChunk],
+    kept: list[RerankedChunk],
+    stages: list[RetrievalStage],
+) -> list[RerankedChunk]:
+    """Restore Top-N siblings only when a threshold-passing topic anchor exists."""
+    if not kept:
+        stages.append(
+            RetrievalStage(
+                name="topic_context",
+                hit_count=0,
+                elapsed_ms=0,
+                note="no_kept_context",
+            )
+        )
+        return kept
+
+    anchored_topics = {
+        (item.chunk.document_id, topic)
+        for item in kept
+        if (topic := _fault_topic(item.chunk.heading_path)) is not None
+    }
+    kept_ids = {item.chunk.chunk_id for item in kept}
+    additions: list[RerankedChunk] = []
+    for item in candidates:
+        if item.chunk.chunk_id in kept_ids:
+            continue
+        topic = _fault_topic(item.chunk.heading_path)
+        if (
+            topic is None
+            or (item.chunk.document_id, topic) not in anchored_topics
+        ):
+            continue
+        additions.append(item)
+        kept_ids.add(item.chunk.chunk_id)
+
+    stages.append(
+        RetrievalStage(
+            name="topic_context",
+            hit_count=len(additions),
+            elapsed_ms=0,
+            note=(
+                f"anchored_topics={len(anchored_topics)}"
+                if additions
+                else "no_matching_rerank_top_n_sibling"
+            ),
+            top_chunk_ids=[item.chunk.chunk_id for item in additions[:5]],
+        )
+    )
+    return kept + additions
+
+
+def _fault_topic(heading_path: list[str]) -> tuple[str, ...] | None:
+    # Markdown 语料的最后一级是“现象/根因/处理步骤”等证据类别，之前的完整
+    # 标题链才标识故障主题。至少保留文档和主题两级，避免把整篇文档混为一组。
+    if len(heading_path) < 3:
+        return None
+    return tuple(part.strip().casefold() for part in heading_path[:-1])

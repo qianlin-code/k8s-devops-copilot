@@ -89,14 +89,14 @@ flowchart LR
 
 同一历史运行还记录知识路由 86.7%、工具路由 100%、faithfulness 0.718、answer relevancy 0.691。
 
-这些是旧配置下的历史基线，不代表当前提交已经通过验收。当前代码的 Embedding 默认值、JWT 和检索逻辑后来发生过变化，正式发布前必须重新运行完整评测。实验条件、失败案例和最新结果入口见 [评测与失败案例](docs/评测与失败案例.md)。
+这些是旧配置下的历史基线，不代表当前提交已经通过验收。当前脏工作树候选已用 DeepSeek V4 Pro + BGE-M3 + BGE Reranker 完成固定 39 条严格门禁 `39/39` 和人工证据复核；q35 字段约束提示已按生产 Schema 确定性修复并通过 Python 3.11 契约 `70 passed`、全量 `290 passed`，Qwen-Max 正式复裁仅保留为参考。最终提交干净克隆、远端 CI 和 Release 仍未完成。实验条件、历史分歧与最新结果见 [评测与失败案例](docs/评测与失败案例.md)。
 
 ## 技术栈
 
 | 层 | 技术 |
 | --- | --- |
 | 后端 | FastAPI、Pydantic v2、SQLAlchemy 2.0 |
-| LLM | Ollama / 阿里云百炼 Qwen（OpenAI 兼容协议） |
+| LLM | DeepSeek V4 Pro（发布生成基准）；Ollama（离线兼容）；Qwen-Max（独立参考裁判） |
 | 检索 | Qdrant embedded、rank-bm25、RRF、BGE Reranker |
 | 存储 | SQLite WAL + Qdrant |
 | 前端 | React 18、TypeScript、Vite、Playwright |
@@ -108,7 +108,7 @@ flowchart LR
 
 - Python 3.11
 - Node.js 与 npm
-- Ollama，或可用的阿里云百炼 API Key
+- DeepSeek API Key；本地 BGE-M3 Embedding 还需要 Ollama
 - 可选：支持 PyTorch 的 CPU/GPU 环境，用于本地 Rerank
 
 ### 1. 后端
@@ -127,7 +127,7 @@ uv pip install --python .venv\Scripts\python.exe -r $requirements
 .venv\Scripts\python.exe -m uvicorn app.main:app --reload --port 8000
 ```
 
-本地 Ollama 方案需要提前准备 `.env` 中配置的聊天和 Embedding 模型。启用真实 BGE Rerank 时，再安装 `rerank` 可选依赖及匹配环境的 PyTorch。
+默认发布组合要求在私有 `backend/.env` 填写 `DEEPSEEK_API_KEY`，并由 Ollama 提供 `bge-m3` Embedding。启用真实 BGE Rerank 时，再安装 `rerank` 可选依赖及匹配环境的 PyTorch。把 `LLM_PROVIDER` 显式改为 `ollama` 可启用本地 `qwen2.5:7b` 兼容模式，但该模式未达到 v1.0 发布生成质量门槛。
 
 ### 2. 初始化演示数据
 
@@ -184,7 +184,7 @@ docker compose down
 
 ### 本地真实验收
 
-启动 Docker Desktop 与 Ollama，并拉取 `qwen2.5:7b`、`bge-m3` 后，可在隔离的
+启动 Docker Desktop 与 Ollama，并拉取 `bge-m3` 后，可在隔离的
 Compose project 中运行下列命令。脚本使用随机运行时密码、独立端口和独立数据卷，默认
 开启真实 BGE Reranker；不会自动停止容器或删除证据：
 
@@ -211,17 +211,17 @@ npm.cmd run build
 `npm.cmd run e2e`、真实 HTTP 脚本、真实 Ollama 检索与 `eval_ragas.py` 不属于离线 CI；它们可能写入
 数据库或调用付费模型，执行前阅读 [AGENTS.md](AGENTS.md) 的验证说明。
 
-截至 2026-08-12，当前候选工作树的 Python 3.11 离线测试（139 项，退出码 0）、前端 lockfile 安装、类型检查与生产构建均已通过；
-语料 fake 入库得到 50 个有效 chunk。离线 CI 不替代 Docker/Ollama 验收；后者已在保留的本机隔离现场单独验证，完整状态见
+截至 2026-08-12，commit `31d6551` 的独立干净克隆已使用 Python 3.11 从 `uv.lock` 安装依赖并通过 139 项离线测试（exit 0）；前端 lockfile 安装、类型检查、生产构建与 npm audit（0 vulnerabilities）也均已通过。
+语料 fake 入库得到 50 个有效 chunk；commit `31d6551` 已在独立克隆的隔离 Docker/Ollama 现场完成健康、初始化、HTTP/JWT、SSE、真实检索与 Playwright 复核。离线 CI 不替代该路径，完整通过项、失败案例和未验证边界见
 [项目验收标准](项目验收标准.md)。
 
 ## 项目限制
 
 - 集群工具使用演示数据，不连接生产 Kubernetes。
 - embedded Qdrant 和单机 SQLite 面向本地作品演示，不是高可用生产架构。
-- 本地 7B 模型仍可能过度调用工具、过度拒答或编造细节；失败案例公开保留。
-- Docker/Ollama 需要额外的本机服务与模型，属于可选真实验收路径，不属于干净克隆的离线 CI；付费 Qwen 裁判和演示录屏仍未验证。
-- 当前候选改动尚未提交；必须在指定 commit 的干净克隆中完整复测后，才能判断是否达到 v1.0 门槛。
+- 本地 `qwen2.5:7b` 仅作为显式离线兼容模式，仍可能过度调用工具、过度拒答或证据选择失败；失败案例公开保留。
+- Docker/Ollama 需要额外的本机服务与模型，属于可选真实验收路径，不属于干净克隆的离线 CI；当前候选的演示录屏仍未验证。
+- 本地发布候选 commit 已完成离线干净克隆复测和独立克隆中的隔离 Docker 初始化；远端 GitHub Actions、生产部署、演示录屏与 v1.0 Release 仍未验证，不能据此宣称正式发布。
 
 ## 文档导航
 

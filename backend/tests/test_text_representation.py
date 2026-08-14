@@ -6,7 +6,7 @@
 """
 
 from app.rag.chunking.base import Chunk
-from app.rag.vector_store import ScoredChunk
+from app.rag.vector_store import ScoredChunk, _to_scored
 
 SECTION_BODY = "账号的 permission_level 字段为 restricted，未被授予目标应用的访问权限。"
 HEADING = ["登录与认证故障排查手册", "403 Forbidden 权限不足", "根因"]
@@ -34,6 +34,25 @@ def test_contextual_text_carries_heading_keywords() -> None:
 def test_contextual_text_without_heading_is_plain_text() -> None:
     scored = _scored(SECTION_BODY, [])
     assert scored.contextual_text == SECTION_BODY
+
+
+def test_vector_payload_restores_chunk_type_and_legacy_payload_is_compatible() -> None:
+    payload = {
+        "document_id": "d1",
+        "document_title": "手册",
+        "text": SECTION_BODY,
+        "heading_path": HEADING,
+        "chunk_index": 2,
+        "is_procedural": True,
+        "chunk_type": "procedural",
+    }
+    current = _to_scored("c1", payload, 0.8)
+    legacy = _to_scored("c2", {key: value for key, value in payload.items() if key != "chunk_type"}, 0.7)
+
+    assert current.chunk_type == "procedural"
+    assert current.is_procedural is True
+    assert legacy.chunk_type is None
+    assert legacy.is_procedural is True
 
 
 def test_bm25_corpus_includes_heading_tokens() -> None:
@@ -72,6 +91,28 @@ def test_bm25_ranks_heading_match_above_unrelated() -> None:
     hits = index.search("permission_level restricted 403", top_k=3)
     assert hits, "正文关键词应能命中"
     assert hits[0].chunk_id == target.chunk_id
+
+
+def test_bm25_result_preserves_chunk_classification() -> None:
+    from app.rag.bm25_index import BM25Index
+
+    source = ScoredChunk(
+        "steps", "d1", "手册", "kubectl auth can-i", ["手册", "处理步骤"],
+        0, 0.0, is_procedural=True, chunk_type="procedural",
+    )
+    index = BM25Index()
+    index.rebuild(
+        [
+            source,
+            _scored("完全无关的账单内容", ["手册", "账单"]),
+            ScoredChunk("other-2", "d2", "手册", "网络策略说明", ["手册", "网络"], 0, 0.0),
+            ScoredChunk("other-3", "d3", "手册", "存储挂载说明", ["手册", "存储"], 0, 0.0),
+        ]
+    )
+
+    result = index.search("kubectl auth can-i", top_k=1)[0]
+    assert result.is_procedural is True
+    assert result.chunk_type == "procedural"
 
 
 def test_reranker_receives_contextual_text() -> None:

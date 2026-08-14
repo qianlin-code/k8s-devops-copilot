@@ -22,9 +22,9 @@
       "data": {
         "phase": "accepted",
         "label": "会话已建立",
-        "elapsed_ms": 2,
+        "elapsed_ms": 3,
         "detail": {
-          "conversation_id": "c68cf51d-c0d9-40b4-820c-363cdebec4e4"
+          "conversation_id": "85409c97-2803-43b2-a6a4-9c1aef4caa5b"
         }
       }
     },
@@ -33,7 +33,7 @@
       "data": {
         "phase": "context_built",
         "label": "多轮上下文已组装",
-        "elapsed_ms": 2,
+        "elapsed_ms": 3,
         "detail": {
           "total_turns": 0,
           "windowed_turns": 0,
@@ -54,10 +54,10 @@
       "event": "progress",
       "data": {
         "phase": "retrieved",
-        "label": "检索到 1 条相关片段",
+        "label": "检索到 2 条相关片段",
         "elapsed_ms": 4,
         "detail": {
-          "chunk_count": 1,
+          "chunk_count": 2,
           "rerank_applied": true
         }
       }
@@ -67,7 +67,7 @@
       "data": {
         "phase": "agent_step",
         "label": "正在判断该直接回答还是调用工具",
-        "elapsed_ms": 5,
+        "elapsed_ms": 4,
         "detail": {
           "node": "route",
           "step": 1
@@ -78,37 +78,25 @@
       "event": "progress",
       "data": {
         "phase": "agent_step",
-        "label": "正在校验信息是否充分",
+        "label": "正在生成回答",
         "elapsed_ms": 5,
         "detail": {
-          "node": "verify_sufficiency",
-          "step": 2
-        }
-      }
-    },
-    {
-      "event": "progress",
-      "data": {
-        "phase": "agent_step",
-        "label": "正在生成回答",
-        "elapsed_ms": 6,
-        "detail": {
           "node": "generate_answer",
-          "step": 3
+          "step": 2
         }
       }
     },
     {
       "event": "done",
       "data": {
-        "conversation_id": "c68cf51d-c0d9-40b4-820c-363cdebec4e4",
+        "conversation_id": "85409c97-2803-43b2-a6a4-9c1aef4caa5b",
         "message_id": 4,
         "outcome": "direct_answer",
-        "answer": "根据《Pod 生命周期故障排查》[1]，Pending 是因为资源不足导致调度器无法找到合适节点。请检查集群 CPU/内存剩余容量。",
+        "answer": "结论\n- Pending 表示 Pod 还没有被调度到任何节点上，通常是资源不足导致调度器无法为其找到合适的节点，需检查集群 CPU/内存剩余容量。 [K1.A1]\n\n证据步骤\n- 当前证据未提供可验证步骤。",
         "pending_write": null,
         "trace": {
-          "trace_id": "39bc14d26738444f9b78b061953dfdc6",
-          "total_elapsed_ms": 6,
+          "trace_id": "a6fbc3fc64654007b4c7f32676f01b24",
+          "total_elapsed_ms": 5,
           "context": {
             "total_turns": 0,
             "windowed_turns": 0,
@@ -140,8 +128,8 @@
                 "hit_count": 2,
                 "elapsed_ms": 0,
                 "top_chunk_ids": [
-                  "5700c5de-b199-4004-a3b2-3e13d02d271d",
-                  "148fca6d-10f6-4b84-88d9-a2a4d1ad8756"
+                  "c9d4232b-82c1-4894-a58d-42df6ad73022",
+                  "a8add3f1-afb6-4bbe-8d12-ee689db26f8f"
                 ],
                 "note": null
               },
@@ -157,8 +145,8 @@
                 "hit_count": 2,
                 "elapsed_ms": 0,
                 "top_chunk_ids": [
-                  "5700c5de-b199-4004-a3b2-3e13d02d271d",
-                  "148fca6d-10f6-4b84-88d9-a2a4d1ad8756"
+                  "c9d4232b-82c1-4894-a58d-42df6ad73022",
+                  "a8add3f1-afb6-4bbe-8d12-ee689db26f8f"
                 ],
                 "note": null
               },
@@ -167,8 +155,8 @@
                 "hit_count": 2,
                 "elapsed_ms": 0,
                 "top_chunk_ids": [
-                  "5700c5de-b199-4004-a3b2-3e13d02d271d",
-                  "148fca6d-10f6-4b84-88d9-a2a4d1ad8756"
+                  "c9d4232b-82c1-4894-a58d-42df6ad73022",
+                  "a8add3f1-afb6-4bbe-8d12-ee689db26f8f"
                 ],
                 "note": null
               },
@@ -177,21 +165,37 @@
                 "hit_count": 0,
                 "elapsed_ms": 0,
                 "top_chunk_ids": [],
-                "note": "no_procedural_chunks"
+                "note": "checked_docs=1 all_duplicates"
               },
               {
                 "name": "relevance_filter",
                 "hit_count": 1,
                 "elapsed_ms": 0,
                 "top_chunk_ids": [],
-                "note": "threshold=0.12 dropped=1"
+                "note": "threshold=0.03 dropped=1"
+              },
+              {
+                "name": "topic_context",
+                "hit_count": 0,
+                "elapsed_ms": 0,
+                "top_chunk_ids": [],
+                "note": "no_matching_rerank_top_n_sibling"
+              },
+              {
+                "name": "explicit_heading_context",
+                "hit_count": 1,
+                "elapsed_ms": 0,
+                "top_chunk_ids": [
+                  "a8add3f1-afb6-4bbe-8d12-ee689db26f8f"
+                ],
+                "note": "tokens=pending,pod"
               }
             ],
             "citations": [
               {
                 "index": 1,
-                "chunk_id": "5700c5de-b199-4004-a3b2-3e13d02d271d",
-                "document_id": "fe441b96-9e04-481d-9db5-8c6e266d6703",
+                "chunk_id": "c9d4232b-82c1-4894-a58d-42df6ad73022",
+                "document_id": "cdfedfb5-d96b-4cef-ac57-a3503450b492",
                 "document_title": "Pod 生命周期故障排查",
                 "citation_label": "Pod 生命周期故障排查 / Pod 停滞在 Pending 状态",
                 "heading_path": [
@@ -202,6 +206,21 @@
                 "rerank_score": 0.4,
                 "rank_before": 1,
                 "rank_after": 1
+              },
+              {
+                "index": 2,
+                "chunk_id": "a8add3f1-afb6-4bbe-8d12-ee689db26f8f",
+                "document_id": "cdfedfb5-d96b-4cef-ac57-a3503450b492",
+                "document_title": "Pod 生命周期故障排查",
+                "citation_label": "Pod 生命周期故障排查 / Pod 反复重启（CrashLoopBackOff）",
+                "heading_path": [
+                  "Pod 生命周期故障排查",
+                  "Pod 反复重启（CrashLoopBackOff）"
+                ],
+                "text": "容器进程本身异常退出，需查看 kubectl logs --previous 排查上一次崩溃原因。",
+                "rerank_score": 0.0,
+                "rank_before": 2,
+                "rank_after": 2
               }
             ]
           },
@@ -209,45 +228,35 @@
             {
               "round": 1,
               "action": "answer",
-              "reasoning": "知识片段已覆盖 Pending 的成因与处理步骤",
-              "confidence": 0.92,
+              "reasoning": "已检索到通过相关性阈值的知识证据，问题未请求实时状态或操作。",
+              "confidence": 1.0,
               "tool_name": null,
               "tool_arguments": {}
             }
           ],
           "tool_calls": [],
-          "sufficiency": {
-            "sufficient": true,
-            "reasoning": "检索片段直接命中问题",
-            "missing_information": [],
-            "suggested_next_step": null
-          },
+          "sufficiency": null,
           "steps": [
             {
               "step": 1,
               "node": "route",
               "detail": {
-                "round": 1,
+                "round": 0,
                 "action": "answer",
-                "reasoning": "知识片段已覆盖 Pending 的成因与处理步骤",
-                "confidence": 0.92,
-                "tool_name": null
+                "reasoning": "已检索到通过相关性阈值的知识证据，问题未请求实时状态或操作。",
+                "confidence": 1.0,
+                "tool_name": null,
+                "policy": "knowledge_evidence_direct_answer"
               }
             },
             {
               "step": 2,
-              "node": "verify_sufficiency",
-              "detail": {
-                "sufficient": true,
-                "reasoning": "检索片段直接命中问题",
-                "missing_information": []
-              }
-            },
-            {
-              "step": 3,
               "node": "generate_answer",
               "detail": {
-                "length": 66
+                "length": 104,
+                "status": "verified",
+                "attempts": 1,
+                "fallback_reason": null
               }
             }
           ],
@@ -255,9 +264,30 @@
             "input_flags": [],
             "output_redactions": []
           },
-          "agent_max_steps": 4
+          "agent_max_steps": 4,
+          "answer_evidence": [
+            {
+              "item_index": 1,
+              "section": "conclusion",
+              "evidence_kind": "knowledge",
+              "source_id": "K1.A1",
+              "rendered_text": "Pending 表示 Pod 还没有被调度到任何节点上，通常是资源不足导致调度器无法为其找到合适的节点，需检查集群 CPU/内存剩余容量。",
+              "chunk_id": "c9d4232b-82c1-4894-a58d-42df6ad73022",
+              "citation_label": "Pod 生命周期故障排查 / Pod 停滞在 Pending 状态",
+              "exact_quote": "Pending 表示 Pod 还没有被调度到任何节点上，通常是资源不足导致调度器无法为其找到合适的节点，需检查集群 CPU/内存剩余容量。",
+              "tool_name": null,
+              "invocation_index": null,
+              "json_pointer": null,
+              "serialized_value": null
+            }
+          ],
+          "answer_generation": {
+            "status": "verified",
+            "attempts": 1,
+            "fallback_reason": null
+          }
         },
-        "created_at": "2026-08-11T05:46:48.139852Z"
+        "created_at": "2026-08-14T07:34:08.826492Z"
       }
     }
   ]

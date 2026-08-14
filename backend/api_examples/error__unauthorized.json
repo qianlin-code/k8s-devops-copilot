@@ -5,7 +5,7 @@
   "response": {
     "code": "UNAUTHORIZED",
     "message": "Missing Authorization header",
-    "trace_id": "722e04efd86047b2bb5176a3741b3226",
+    "trace_id": "99a81b19a21c4f34ade2a7317b9d24cc",
     "retryable": false,
     "details": {}
   }

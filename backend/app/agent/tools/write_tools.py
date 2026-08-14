@@ -3,14 +3,20 @@ from typing import ClassVar, Optional
 
 from pydantic import Field
 
-from app.agent.tools.base import Tool, ToolContext, ToolResult, WriteToolArgs
+from app.agent.tools.base import (
+    NonEmptyToolString,
+    Tool,
+    ToolContext,
+    ToolResult,
+    WriteToolArgs,
+)
 from app.errors import ErrorCode, ToolError, ToolPermissionDeniedError
 from app.schemas.base import to_utc_iso
 from app.storage.models import Incident, IncidentStatus, MockDeployment, MockPod
 
 
 class RestartDeploymentArgs(WriteToolArgs):
-    namespace: str = Field(description="命名空间")
+    namespace: NonEmptyToolString = Field(description="命名空间")
     name: str = Field(description="要重启的 Deployment 名称")
     reason: str = Field(description="执行原因，写入审计")
     # 操作身份只看目标（namespace, name），reason 是解释性自由文本，
@@ -33,6 +39,7 @@ class RestartDeploymentTool(Tool[RestartDeploymentArgs, RestartDeploymentResult]
     )
     is_write: ClassVar[bool] = True
     cacheable: ClassVar[bool] = False
+    user_grounded_fields: ClassVar[tuple[str, ...]] = ("name",)
     args_schema: ClassVar[type] = RestartDeploymentArgs
 
     def run(
@@ -68,7 +75,7 @@ class RestartDeploymentTool(Tool[RestartDeploymentArgs, RestartDeploymentResult]
 
 
 class CreateAlertArgs(WriteToolArgs):
-    namespace: str = Field(description="告警所属命名空间")
+    namespace: NonEmptyToolString = Field(description="告警所属命名空间")
     title: str = Field(min_length=4, max_length=120, description="工单标题")
     description: str = Field(min_length=10, description="故障描述与已排查结论")
     priority: str = Field(default="medium", description="low/medium/high")
@@ -92,6 +99,7 @@ class CreateAlertTool(Tool[CreateAlertArgs, CreateAlertResult]):
     )
     is_write: ClassVar[bool] = True
     cacheable: ClassVar[bool] = False
+    user_grounded_fields: ClassVar[tuple[str, ...]] = ("title", "description")
     args_schema: ClassVar[type] = CreateAlertArgs
 
     def run(self, args: CreateAlertArgs, ctx: ToolContext) -> CreateAlertResult:

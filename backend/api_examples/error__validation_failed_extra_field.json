@@ -8,7 +8,7 @@
   "response": {
     "code": "VALIDATION_FAILED",
     "message": "Request payload does not match the API contract",
-    "trace_id": "4796cfd5ca804e72bdae0b2919d5d799",
+    "trace_id": "9abb5b603fe9407789b2cac6787d1c8a",
     "retryable": false,
     "details": {
       "violations": [

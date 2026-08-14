@@ -128,7 +128,7 @@ def test_tool_audit_records_cache_hit(
         client.post(
             "/api/v1/chat",
             headers=API_HEADERS,
-            json={"question": "查一下 api-gateway-7f9c 状态"},
+            json={"question": "查一下 ops-demo 下 api-gateway-7f9c 状态"},
         )
 
     resp = client.get(
@@ -160,7 +160,7 @@ def test_tool_audit_filters_by_conversation(
     body = client.post(
         "/api/v1/chat",
         headers=API_HEADERS,
-        json={"question": "查 Pod"},
+        json={"question": "查 ops-demo 下的 Pod"},
     ).json()
 
     matched = client.get(

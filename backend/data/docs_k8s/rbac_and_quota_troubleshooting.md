@@ -15,6 +15,12 @@ RBAC 通过 `Role`/`ClusterRole`（定义一组权限规则）+ `RoleBinding`/
 才能让 `ClusterRole` 的权限在整个集群范围生效。RBAC 的权限规则是纯粹累加的，
 不存在"拒绝规则"——如果没有任何规则明确允许某个操作，默认就是拒绝。
 
+### 官方语义边界
+Kubernetes 官方 RBAC 文档说明，RBAC 策略通过 Kubernetes API 动态配置；
+`RoleBinding`/`ClusterRoleBinding` 向其 subjects 授予所引用角色定义的权限。
+修改绑定后，应使用 `kubectl auth can-i <verb> <resource> --as=<用户或 ServiceAccount>`
+验证该身份的实际授权结果。本文档不对配置传播时延或任何组件是否需要重启作额外承诺。
+
 ### 处理步骤
 1. 执行 `kubectl auth can-i <verb> <resource> --as=<用户或 ServiceAccount>`
    确认该身份对目标资源确实缺少权限，排除是操作本身写错的可能

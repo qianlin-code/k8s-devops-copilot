@@ -3,16 +3,16 @@
   "http_status": 200,
   "request": {
     "question": "综合前面说的，我现在该做什么",
-    "conversation_id": "bd7ac488-d8d1-4c37-8849-08d3afba4ec1"
+    "conversation_id": "00ad30ce-6256-4d93-95b5-acce84ea2439"
   },
   "response": {
-    "conversation_id": "bd7ac488-d8d1-4c37-8849-08d3afba4ec1",
+    "conversation_id": "00ad30ce-6256-4d93-95b5-acce84ea2439",
     "message_id": 28,
-    "outcome": "direct_answer",
-    "answer": "结合前面的排查过程：重启已触发，通常 1 分钟内 Pod 会恢复 Running[1]。",
+    "outcome": "insufficient_information",
+    "answer": "抱歉，根据现有的知识库内容和系统数据，我无法准确回答这个问题。\n\n缺少以下关键信息：\n- 回答证据未能通过逐项校验\n\n建议：请补充可核验的信息后重试，或提交工单转人工处理。",
     "pending_write": null,
     "trace": {
-      "trace_id": "6ded69c1777f43d3b0f3b90d3118945a",
+      "trace_id": "85e4ae1fd55b437785a6fbf092117fae",
       "total_elapsed_ms": 3,
       "context": {
         "total_turns": 4,
@@ -45,8 +45,8 @@
             "hit_count": 2,
             "elapsed_ms": 0,
             "top_chunk_ids": [
-              "148fca6d-10f6-4b84-88d9-a2a4d1ad8756",
-              "5700c5de-b199-4004-a3b2-3e13d02d271d"
+              "a8add3f1-afb6-4bbe-8d12-ee689db26f8f",
+              "c9d4232b-82c1-4894-a58d-42df6ad73022"
             ],
             "note": null
           },
@@ -62,8 +62,8 @@
             "hit_count": 2,
             "elapsed_ms": 0,
             "top_chunk_ids": [
-              "148fca6d-10f6-4b84-88d9-a2a4d1ad8756",
-              "5700c5de-b199-4004-a3b2-3e13d02d271d"
+              "a8add3f1-afb6-4bbe-8d12-ee689db26f8f",
+              "c9d4232b-82c1-4894-a58d-42df6ad73022"
             ],
             "note": null
           },
@@ -72,8 +72,8 @@
             "hit_count": 2,
             "elapsed_ms": 0,
             "top_chunk_ids": [
-              "148fca6d-10f6-4b84-88d9-a2a4d1ad8756",
-              "5700c5de-b199-4004-a3b2-3e13d02d271d"
+              "a8add3f1-afb6-4bbe-8d12-ee689db26f8f",
+              "c9d4232b-82c1-4894-a58d-42df6ad73022"
             ],
             "note": null
           },
@@ -82,14 +82,28 @@
             "hit_count": 0,
             "elapsed_ms": 0,
             "top_chunk_ids": [],
-            "note": "no_procedural_chunks"
+            "note": "checked_docs=1 all_duplicates"
           },
           {
             "name": "relevance_filter",
             "hit_count": 0,
             "elapsed_ms": 0,
             "top_chunk_ids": [],
-            "note": "threshold=0.12 dropped=2"
+            "note": "threshold=0.03 dropped=2"
+          },
+          {
+            "name": "topic_context",
+            "hit_count": 0,
+            "elapsed_ms": 0,
+            "top_chunk_ids": [],
+            "note": "no_kept_context"
+          },
+          {
+            "name": "explicit_heading_context",
+            "hit_count": 0,
+            "elapsed_ms": 0,
+            "top_chunk_ids": [],
+            "note": "no_explicit_token_or_kept_context"
           }
         ],
         "citations": []
@@ -136,7 +150,10 @@
           "step": 3,
           "node": "generate_answer",
           "detail": {
-            "length": 44
+            "length": 86,
+            "status": "fallback",
+            "attempts": 2,
+            "fallback_reason": "no_evidence_selected"
           }
         }
       ],
@@ -144,8 +161,14 @@
         "input_flags": [],
         "output_redactions": []
       },
-      "agent_max_steps": 4
+      "agent_max_steps": 4,
+      "answer_evidence": [],
+      "answer_generation": {
+        "status": "fallback",
+        "attempts": 2,
+        "fallback_reason": "no_evidence_selected"
+      }
     },
-    "created_at": "2026-08-11T05:46:48.335002Z"
+    "created_at": "2026-08-14T07:34:08.963069Z"
   }
 }

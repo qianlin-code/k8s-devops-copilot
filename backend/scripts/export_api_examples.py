@@ -4,50 +4,54 @@
 运行: python scripts/export_api_examples.py
 """
 
+from __future__ import annotations
+
+import argparse
 import json
 import os
+import re
 import secrets
 import sys
 import tempfile
 from pathlib import Path
+from typing import Any
 
 ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(ROOT))
-
-_TMP = Path(tempfile.mkdtemp(prefix="examples-"))
-os.environ.update(
-    {
-        "JWT_SECRET_KEY": "examples-jwt-secret-not-for-production",
-        "ENVIRONMENT": "dev",
-        "STARTUP_PROBE_EXTERNAL": "false",
-        "WARMUP_RERANKER": "false",  # 用替身 reranker，不加载真实模型
-        "DATABASE_URL": f"sqlite:///{(_TMP / 'examples.db').as_posix()}",
-        "QDRANT_PATH": str(_TMP / "qdrant"),
-        "EMBEDDING_PROVIDER": "ollama",
-        "LLM_PROVIDER": "ollama",
-        "OLLAMA_EMBEDDING_MODEL": "fake-embedding",
-        "OLLAMA_EMBEDDING_DIM": "64",
-        "ENABLE_QUERY_REWRITE": "false",
-        "AGENT_MAX_STEPS": "4",
-        "TOOL_CACHE_TTL_SECONDS": "0",
-        "CONTEXT_WINDOW_TURNS": "2",
-    }
-)
-
-from fastapi.testclient import TestClient  # noqa: E402
-
-import app.dependencies as deps  # noqa: E402
-from app.llm import factory  # noqa: E402
-from app.main import create_app  # noqa: E402
-from app.rag import reranker  # noqa: E402
-from tests.fakes import FakeEmbeddingClient, KeywordReranker, ScriptedLLMClient  # noqa: E402
-from app.storage.db import session_scope  # noqa: E402
-from app.storage.seed import seed_test_users  # noqa: E402
 
 OUT = ROOT / "api_examples"
 USER_HEADERS: dict[str, str] = {}
 ADMIN_HEADERS: dict[str, str] = {}
 OTHER_USER_HEADERS: dict[str, str] = {}
+LLM: Any = None
+
+QUALITY_SCORE = 0.4
+QUALITY_REASONING = "样例固定质量筛选：内容有参考价值但步骤不够完整，保留人工审核。"
+
+RESTART_QUESTION = (
+    "请重启 ops-demo 下的 worker-queue Deployment，原因是配置修复后重启生效"
+)
+INCIDENT_QUESTION = (
+    "在 ops-demo 提个告警工单，"
+    "标题 api-gateway Pod 长期 Pending 需人工介入，"
+    "描述资源已确认充足但仍无法调度，需要工程师排查调度器配置。，"
+    "优先级 high"
+)
+
+_UUID_RE = re.compile(
+    r"[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}",
+    re.IGNORECASE,
+)
+_HEX_32_RE = re.compile(r"[0-9a-f]{32}", re.IGNORECASE)
+_TIMESTAMP_RE = re.compile(
+    r"\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d+)?(?:Z|[+-]\d{2}:\d{2})"
+)
+_INCIDENT_RE = re.compile(r"INC-[0-9A-F]{10}")
+_HEX_32_FIELDS = frozenset({"trace_id", "confirmation_token"})
+_TIMING_FIELDS = frozenset(
+    {"elapsed_ms", "total_elapsed_ms", "latency_ms", "duration_ms"}
+)
+
 KB_DOC = (
     "# Pod 生命周期故障排查\n\n"
     "## Pod 停滞在 Pending 状态\n"
@@ -57,8 +61,147 @@ KB_DOC = (
     "容器进程本身异常退出，需查看 kubectl logs --previous 排查上一次崩溃原因。\n"
 )
 
-LLM = ScriptedLLMClient()
 EXAMPLE_PASSWORD = secrets.token_urlsafe(24)
+
+
+def _configure_runtime() -> Path:
+    runtime_dir = Path(tempfile.mkdtemp(prefix="examples-"))
+    for key in ("QWEN_API_KEY", "DEEPSEEK_API_KEY", "OPENAI_API_KEY"):
+        # Empty process-level values take precedence over backend/.env and make
+        # accidental paid-provider construction impossible in this fixture.
+        os.environ[key] = ""
+    os.environ.update(
+        {
+            "JWT_SECRET_KEY": "examples-jwt-secret-not-for-production",
+            "ENVIRONMENT": "dev",
+            "STARTUP_PROBE_EXTERNAL": "false",
+            "WARMUP_RERANKER": "false",
+            "WARMUP_LLM": "false",
+            "DATABASE_URL": f"sqlite:///{(runtime_dir / 'examples.db').as_posix()}",
+            "QDRANT_PATH": str(runtime_dir / "qdrant"),
+            "EMBEDDING_PROVIDER": "ollama",
+            "LLM_PROVIDER": "ollama",
+            "OLLAMA_EMBEDDING_MODEL": "fake-embedding",
+            "OLLAMA_EMBEDDING_DIM": "64",
+            "ENABLE_QUERY_REWRITE": "false",
+            "AGENT_MAX_STEPS": "4",
+            "TOOL_CACHE_TTL_SECONDS": "0",
+            "CONTEXT_WINDOW_TURNS": "2",
+        }
+    )
+    return runtime_dir
+
+
+def _identity_placeholder(
+    kind: str,
+    value: str,
+    identities: dict[str, dict[object, int]],
+) -> str:
+    values = identities.setdefault(kind, {})
+    index = values.setdefault(value, len(values) + 1)
+    return f"<volatile:{kind}:{index}>"
+
+
+def _normalize_dynamic_string(
+    value: str,
+    identities: dict[str, dict[object, int]],
+    field_name: str | None,
+) -> str:
+    if field_name in _HEX_32_FIELDS and _HEX_32_RE.fullmatch(value):
+        return _identity_placeholder(field_name, value, identities)
+
+    normalized = _UUID_RE.sub(
+        lambda match: _identity_placeholder("uuid", match.group(0), identities),
+        value,
+    )
+    normalized = _INCIDENT_RE.sub(
+        lambda match: _identity_placeholder("incident_id", match.group(0), identities),
+        normalized,
+    )
+    # Timestamp equality depends on transaction timing and is not a reference
+    # relationship. Identity-bearing UUIDs, tokens and incident IDs remain mapped.
+    return _TIMESTAMP_RE.sub("<volatile:timestamp>", normalized)
+
+
+def _normalize_snapshot_value(
+    value: object,
+    identities: dict[str, dict[object, int]],
+    field_name: str | None = None,
+) -> object:
+    if isinstance(value, dict):
+        return {
+            key: _normalize_snapshot_value(value[key], identities, key)
+            for key in sorted(value)
+        }
+    if isinstance(value, list):
+        return [
+            _normalize_snapshot_value(item, identities, field_name) for item in value
+        ]
+
+    if (
+        field_name in _TIMING_FIELDS
+        and isinstance(value, (int, float))
+        and not isinstance(value, bool)
+    ):
+        return "<volatile:timing>"
+    if isinstance(value, str):
+        return _normalize_dynamic_string(value, identities, field_name)
+    return value
+
+
+def _normalized_example_directory(directory: Path) -> dict[str, object]:
+    identities: dict[str, dict[object, int]] = {}
+    normalized: dict[str, object] = {}
+    for path in sorted(directory.glob("*.json"), key=lambda item: item.name):
+        payload = json.loads(path.read_text(encoding="utf-8"))
+        normalized[path.name] = _normalize_snapshot_value(payload, identities)
+    return normalized
+
+
+def compare_example_directories(expected: Path, actual: Path) -> list[str]:
+    expected_payloads = _normalized_example_directory(expected)
+    actual_payloads = _normalized_example_directory(actual)
+    expected_names = set(expected_payloads)
+    actual_names = set(actual_payloads)
+
+    differences = [
+        *(f"missing:{name}" for name in sorted(expected_names - actual_names)),
+        *(f"extra:{name}" for name in sorted(actual_names - expected_names)),
+    ]
+    differences.extend(
+        f"changed:{name}"
+        for name in sorted(expected_names & actual_names)
+        if expected_payloads[name] != actual_payloads[name]
+    )
+    return differences
+
+
+def _display_path(path: Path) -> Path:
+    try:
+        return path.relative_to(ROOT)
+    except ValueError:
+        return path
+
+
+def _require_pending_write(
+    *, status: int, body: dict[str, object], expected_tool: str
+) -> tuple[str, str]:
+    outcome = body.get("outcome")
+    pending = body.get("pending_write")
+    if status != 200 or outcome != "write_confirmation_required":
+        raise RuntimeError(
+            f"write fixture did not reach confirmation: status={status} outcome={outcome}"
+        )
+    if not isinstance(pending, dict) or pending.get("tool_name") != expected_tool:
+        raise RuntimeError("write fixture returned an unexpected pending tool")
+
+    token = pending.get("confirmation_token")
+    conversation_id = body.get("conversation_id")
+    if not isinstance(token, str) or not token:
+        raise RuntimeError("write fixture returned no confirmation token")
+    if not isinstance(conversation_id, str) or not conversation_id:
+        raise RuntimeError("write fixture returned no conversation id")
+    return conversation_id, token
 
 
 def write(name: str, request: dict | None, response, status: int) -> None:
@@ -73,16 +216,16 @@ def write(name: str, request: dict | None, response, status: int) -> None:
     path.write_text(
         json.dumps(payload, ensure_ascii=False, indent=2) + "\n", encoding="utf-8"
     )
-    print(f"  wrote {path.relative_to(ROOT)} ({status})")
+    print(f"  wrote {_display_path(path)} ({status})")
 
 
-def ask(client: TestClient, question: str, **extra) -> tuple[dict, dict, int]:
+def ask(client: Any, question: str, **extra) -> tuple[dict, dict, int]:
     request = {"question": question, **extra}
     resp = client.post("/api/v1/chat", headers=USER_HEADERS, json=request)
     return request, resp.json(), resp.status_code
 
 
-def dump_stream(client: TestClient, name: str, question: str, **extra) -> None:
+def dump_stream(client: Any, name: str, question: str, **extra) -> None:
     """导出 SSE 事件序列样例。
 
     流式接口的契约是「事件序列」，单个响应体表达不了，
@@ -118,19 +261,63 @@ def dump_stream(client: TestClient, name: str, question: str, **extra) -> None:
     path.write_text(
         json.dumps(payload, ensure_ascii=False, indent=2) + "\n", encoding="utf-8"
     )
-    print(f"  wrote {path.relative_to(ROOT)} ({len(events)} events)")
+    print(f"  wrote {_display_path(path)} ({len(events)} events)")
 
 
-def scenario() -> ScriptedLLMClient:
+def scenario() -> Any:
     """每个样例开场清空残留脚本，保证样例可独立复现。"""
+    if LLM is None:
+        raise RuntimeError("example runtime is not initialized")
     return LLM.reset()
 
 
-def main() -> int:
+def _parse_args(argv: list[str] | None) -> argparse.Namespace:
+    parser = argparse.ArgumentParser(description=__doc__)
+    group = parser.add_mutually_exclusive_group()
+    group.add_argument(
+        "--output-dir",
+        type=Path,
+        help="write examples to this directory instead of backend/api_examples",
+    )
+    group.add_argument(
+        "--check",
+        action="store_true",
+        help="generate in a temporary directory and compare semantic snapshots",
+    )
+    return parser.parse_args(argv)
+
+
+def main(argv: list[str] | None = None) -> int:
+    args = _parse_args(argv)
+    global OUT, LLM, USER_HEADERS, ADMIN_HEADERS, OTHER_USER_HEADERS
+    OUT = (
+        Path(tempfile.mkdtemp(prefix="api-examples-check-"))
+        if args.check
+        else (args.output_dir or ROOT / "api_examples").resolve()
+    )
+    _configure_runtime()
+
+    from fastapi.testclient import TestClient
+
+    import app.dependencies as deps
+    from app.llm import factory
+    from app.main import create_app
+    from app.rag import reranker
+    from app.storage.db import session_scope
+    from app.storage.seed import seed_test_users
+    from tests.fakes import (
+        FakeEmbeddingClient,
+        KeywordReranker,
+        ScriptedLLMClient,
+    )
+
+    LLM = ScriptedLLMClient()
+    quality_llm = ScriptedLLMClient()
     OUT.mkdir(parents=True, exist_ok=True)
 
     factory.get_llm_client = lambda: LLM  # type: ignore[assignment]
     factory.get_embedding_client = lambda: FakeEmbeddingClient()  # type: ignore[assignment]
+    factory.get_sedimentation_client = lambda: quality_llm  # type: ignore[assignment]
     deps.get_llm_client = lambda: LLM  # type: ignore[assignment]
     deps.get_embedding_client = lambda: FakeEmbeddingClient()  # type: ignore[assignment]
     deps.get_reranker = lambda: KeywordReranker()  # type: ignore[assignment]
@@ -149,7 +336,6 @@ def main() -> int:
             response.raise_for_status()
             return {"Authorization": f"Bearer {response.json()['access_token']}"}
 
-        global USER_HEADERS, ADMIN_HEADERS, OTHER_USER_HEADERS
         USER_HEADERS = login_headers("demo-user", EXAMPLE_PASSWORD)
         ADMIN_HEADERS = login_headers("admin", EXAMPLE_PASSWORD)
         registered = client.post(
@@ -224,10 +410,13 @@ def main() -> int:
                 },
             }
         )
-        req, body, status = ask(client, "worker-queue 的配置已经修好了，请帮我重启一下")
+        req, body, status = ask(client, RESTART_QUESTION)
+        pending_conversation, token = _require_pending_write(
+            status=status,
+            body=body,
+            expected_tool="restart_deployment",
+        )
         write("chat__write_confirmation_required", req, body, status)
-        token = body["pending_write"]["confirmation_token"]
-        pending_conversation = body["conversation_id"]
 
         # --- chat/confirm: 确认执行 ---
         scenario().turn(
@@ -261,10 +450,15 @@ def main() -> int:
                 },
             }
         )
-        _, body, _ = ask(client, "还是不行，帮我提个告警工单")
+        _, body, status = ask(client, INCIDENT_QUESTION)
+        rejected_conversation, rejected_token = _require_pending_write(
+            status=status,
+            body=body,
+            expected_tool="create_incident",
+        )
         reject_req = {
-            "conversation_id": body["conversation_id"],
-            "confirmation_token": body["pending_write"]["confirmation_token"],
+            "conversation_id": rejected_conversation,
+            "confirmation_token": rejected_token,
             "approved": False,
         }
         resp = client.post("/api/v1/chat/confirm", headers=USER_HEADERS, json=reject_req)
@@ -370,7 +564,16 @@ def main() -> int:
             "conversation_id": conversation_id,
             "proposed_title": "Pod Pending 排查处理流程",
         }
+        quality_llm.reset().queue_answer(
+            {
+                "quality_score": QUALITY_SCORE,
+                "reasoning": QUALITY_REASONING,
+                "contains_sensitive_info": False,
+            }
+        )
         resp = client.post("/api/v1/knowledge/sedimentations", headers=USER_HEADERS, json=req)
+        if quality_llm.calls != ["answer"]:
+            raise RuntimeError("sedimentation fixture did not use the local quality client")
         write("knowledge_sedimentations__marked_pending", req, resp, resp.status_code)
         pending_id = resp.json()["pending_id"]
 
@@ -441,7 +644,17 @@ def main() -> int:
         write("error__other_user_conversation_not_found", req, resp, resp.status_code)
 
         print(f"\ndone: {len(list(OUT.glob('*.json')))} examples in {OUT.name}/")
-        return 0
+
+    if args.check:
+        differences = compare_example_directories(ROOT / "api_examples", OUT)
+        if differences:
+            print("semantic snapshot check failed:", file=sys.stderr)
+            for difference in differences:
+                print(f"  {difference}", file=sys.stderr)
+            print(f"generated examples preserved at: {OUT}", file=sys.stderr)
+            return 1
+        print(f"semantic snapshot check passed; generated examples preserved at: {OUT}")
+    return 0
 
 
 if __name__ == "__main__":

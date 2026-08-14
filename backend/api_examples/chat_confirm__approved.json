@@ -2,19 +2,19 @@
   "endpoint": "chat/confirm",
   "http_status": 200,
   "request": {
-    "conversation_id": "eb4c430c-2a29-4c0e-bd23-7ea50d4b616a",
+    "conversation_id": "3690be01-5aa6-41ff-b0af-cd2a42ef33db",
     "confirmation_token": "<token from pending_write>",
     "approved": true
   },
   "response": {
-    "conversation_id": "eb4c430c-2a29-4c0e-bd23-7ea50d4b616a",
+    "conversation_id": "3690be01-5aa6-41ff-b0af-cd2a42ef33db",
     "message_id": 9,
     "outcome": "tool_assisted_answer",
-    "answer": "已触发 worker-queue 滚动重启。请稍后确认 Pod 是否恢复到 Running 状态，如果仍有问题请告诉我，我会为您创建告警工单。",
+    "answer": "结论\n- {\"message\":\"已触发滚动重启，请稍后确认 Pod 是否恢复到 Running 状态。\",\"name\":\"worker-queue\",\"namespace\":\"ops-demo\",\"previous_available_replicas\":2} [T1.A1]\n\n证据步骤\n- 当前证据未提供可验证步骤。",
     "pending_write": null,
     "trace": {
-      "trace_id": "fc26a426cad648428320928f3e7e9e1c",
-      "total_elapsed_ms": 7,
+      "trace_id": "0a44bf803a7e490d9664ecb6380409f8",
+      "total_elapsed_ms": 8,
       "context": {
         "total_turns": 1,
         "windowed_turns": 1,
@@ -25,8 +25,8 @@
       },
       "retrieval": {
         "query_rewrite": {
-          "original": "worker-queue 的配置已经修好了，请帮我重启一下",
-          "rewritten": "worker-queue 的配置已经修好了，请帮我重启一下",
+          "original": "请重启 ops-demo 下的 worker-queue Deployment，原因是配置修复后重启生效",
+          "rewritten": "请重启 ops-demo 下的 worker-queue Deployment，原因是配置修复后重启生效",
           "applied": false,
           "keywords": [],
           "skip_reason": "disabled"
@@ -46,8 +46,8 @@
             "hit_count": 2,
             "elapsed_ms": 0,
             "top_chunk_ids": [
-              "148fca6d-10f6-4b84-88d9-a2a4d1ad8756",
-              "5700c5de-b199-4004-a3b2-3e13d02d271d"
+              "a8add3f1-afb6-4bbe-8d12-ee689db26f8f",
+              "c9d4232b-82c1-4894-a58d-42df6ad73022"
             ],
             "note": null
           },
@@ -63,8 +63,8 @@
             "hit_count": 2,
             "elapsed_ms": 0,
             "top_chunk_ids": [
-              "148fca6d-10f6-4b84-88d9-a2a4d1ad8756",
-              "5700c5de-b199-4004-a3b2-3e13d02d271d"
+              "a8add3f1-afb6-4bbe-8d12-ee689db26f8f",
+              "c9d4232b-82c1-4894-a58d-42df6ad73022"
             ],
             "note": null
           },
@@ -73,8 +73,8 @@
             "hit_count": 2,
             "elapsed_ms": 0,
             "top_chunk_ids": [
-              "148fca6d-10f6-4b84-88d9-a2a4d1ad8756",
-              "5700c5de-b199-4004-a3b2-3e13d02d271d"
+              "a8add3f1-afb6-4bbe-8d12-ee689db26f8f",
+              "c9d4232b-82c1-4894-a58d-42df6ad73022"
             ],
             "note": null
           },
@@ -83,7 +83,7 @@
             "hit_count": 0,
             "elapsed_ms": 0,
             "top_chunk_ids": [],
-            "note": "no_procedural_chunks"
+            "note": "checked_docs=1 all_duplicates"
           },
           {
             "name": "relevance_filter",
@@ -91,6 +91,20 @@
             "elapsed_ms": 0,
             "top_chunk_ids": [],
             "note": "threshold=0.12 dropped=2"
+          },
+          {
+            "name": "topic_context",
+            "hit_count": 0,
+            "elapsed_ms": 0,
+            "top_chunk_ids": [],
+            "note": "no_kept_context"
+          },
+          {
+            "name": "explicit_heading_context",
+            "hit_count": 0,
+            "elapsed_ms": 0,
+            "top_chunk_ids": [],
+            "note": "no_explicit_token_or_kept_context"
           }
         ],
         "citations": []
@@ -126,7 +140,7 @@
           "error_message": null,
           "cache_hit": false,
           "idempotent_replay": false,
-          "elapsed_ms": 2
+          "elapsed_ms": 1
         }
       ],
       "sufficiency": {
@@ -146,7 +160,7 @@
             "cache_hit": false,
             "idempotent_replay": false,
             "error_code": null,
-            "elapsed_ms": 2
+            "elapsed_ms": 1
           }
         },
         {
@@ -173,7 +187,10 @@
           "step": 4,
           "node": "generate_answer",
           "detail": {
-            "length": 71
+            "length": 161,
+            "status": "verified",
+            "attempts": 1,
+            "fallback_reason": null
           }
         }
       ],
@@ -181,8 +198,29 @@
         "input_flags": [],
         "output_redactions": []
       },
-      "agent_max_steps": 4
+      "agent_max_steps": 4,
+      "answer_evidence": [
+        {
+          "item_index": 1,
+          "section": "conclusion",
+          "evidence_kind": "tool",
+          "source_id": "T1.A1",
+          "rendered_text": "{\"message\":\"已触发滚动重启，请稍后确认 Pod 是否恢复到 Running 状态。\",\"name\":\"worker-queue\",\"namespace\":\"ops-demo\",\"previous_available_replicas\":2}",
+          "chunk_id": null,
+          "citation_label": null,
+          "exact_quote": null,
+          "tool_name": "restart_deployment",
+          "invocation_index": 1,
+          "json_pointer": "",
+          "serialized_value": "{\"message\":\"已触发滚动重启，请稍后确认 Pod 是否恢复到 Running 状态。\",\"name\":\"worker-queue\",\"namespace\":\"ops-demo\",\"previous_available_replicas\":2}"
+        }
+      ],
+      "answer_generation": {
+        "status": "verified",
+        "attempts": 1,
+        "fallback_reason": null
+      }
     },
-    "created_at": "2026-08-11T05:46:48.175583Z"
+    "created_at": "2026-08-14T07:34:08.872983Z"
   }
 }

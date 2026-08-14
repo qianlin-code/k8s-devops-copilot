@@ -21,6 +21,7 @@ class ScoredChunk:
     chunk_index: int
     score: float
     is_procedural: bool = False
+    chunk_type: str | None = None
 
     def citation_label(self) -> str:
         # Markdown 的 H1 常与文档标题同名，去掉避免 "手册 / 手册 > 章节" 这种重复
@@ -111,6 +112,7 @@ class VectorStore:
                         "heading_path": chunk.heading_path,
                         "chunk_index": chunk.index,
                         "is_procedural": chunk.is_procedural,
+                        "chunk_type": chunk.chunk_type,
                     },
                 )
             )
@@ -235,6 +237,11 @@ def _to_scored(point_id: Any, payload: dict[str, Any], score: float) -> ScoredCh
         chunk_index=int(payload.get("chunk_index", 0)),
         score=float(score),
         is_procedural=bool(payload.get("is_procedural", False)),
+        chunk_type=(
+            str(payload["chunk_type"])
+            if payload.get("chunk_type") is not None
+            else None
+        ),
     )
 
 

@@ -25,6 +25,7 @@ backend/.pytest_cache/
 backend/eval-*.json
 backend/eval-*/
 backend/acceptance-evidence/
+/acceptance-evidence/
 # Nested evidence directories created when acceptance commands are run from a subdirectory.
 # Keep the formal evidence path above; these are local runtime artifacts only.
 backend/backend/

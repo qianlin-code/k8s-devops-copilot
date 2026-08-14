@@ -1,17 +1,20 @@
 import json
+import unicodedata
+import uuid
 from collections.abc import Callable
 from dataclasses import dataclass, field
 from enum import Enum
 from typing import Any
 
-from app.agent.answerer import Answerer, format_knowledge
+from app.agent.answerer import Answerer, VerifiedAnswerResult, format_knowledge
 from app.agent.router import RouteAction, RouteDecision, Router
 from app.agent.sufficiency import SufficiencyChecker, SufficiencyVerdict
-from app.agent.tools.base import ToolContext
+from app.agent.tools.base import Tool, ToolContext
 from app.agent.tools.executor import ToolExecutor, ToolInvocation
 from app.agent.tools.registry import ToolRegistry
 from app.config import get_settings
 from app.errors import ToolError
+from app.rag.query_policy import is_knowledge_only_question
 from app.rag.reranker import RerankedChunk
 
 
@@ -52,6 +55,7 @@ class AgentRunResult:
     sufficiency: SufficiencyVerdict | None = None
     pending_write: PendingWriteAction | None = None
     citations: list[RerankedChunk] = field(default_factory=list)
+    verified_answer: VerifiedAnswerResult | None = None
 
 
 class AgentStateMachine:
@@ -109,6 +113,7 @@ class AgentStateMachine:
         # 一遍遍重复同一个无效调用（实测 6 轮里 4 轮都是纯路由+跳过，359s 后以
         # max_steps_exceeded 收场）。再问一次路由不会有新信息，必须在代码层收敛。
         unproductive_rounds = 0
+        retried_explicit_tool_route = False
 
         def record(node: str, detail: dict[str, Any]) -> None:
             nonlocal node_seq
@@ -138,6 +143,63 @@ class AgentStateMachine:
             else:
                 failed_calls[signature] = inv.error_code or "UNKNOWN"
 
+        def finish_with_answer(
+            *, outcome: AgentOutcome, verdict: SufficiencyVerdict | None = None
+        ) -> AgentRunResult:
+            verified = self._answerer.answer(
+                question,
+                chunks,
+                invocations,
+                context_messages=context_messages,
+            )
+            final_outcome = (
+                AgentOutcome.INSUFFICIENT_INFORMATION
+                if verified.status == "fallback"
+                else outcome
+            )
+            record(
+                "generate_answer",
+                {
+                    "length": len(verified.text),
+                    "status": verified.status,
+                    "attempts": verified.attempts,
+                    "fallback_reason": verified.fallback_reason,
+                },
+            )
+            return AgentRunResult(
+                outcome=final_outcome,
+                answer=verified.text,
+                steps=steps,
+                decisions=decisions,
+                invocations=invocations,
+                sufficiency=verdict,
+                citations=chunks,
+                verified_answer=verified,
+            )
+
+        # 通过相关性阈值的知识片段已是可引用证据。对于没有明确实时资源目标或
+        # 操作意图的问题，直接由回答器作答，避免 7B 把手册中的“检查/重启”等
+        # 操作步骤误读成当前需要调用工具的指令。
+        if not invocations and chunks and is_knowledge_only_question(question):
+            decision = RouteDecision(
+                action=RouteAction.ANSWER,
+                reasoning="已检索到通过相关性阈值的知识证据，问题未请求实时状态或操作。",
+                confidence=1.0,
+            )
+            decisions.append(decision)
+            record(
+                "route",
+                {
+                    "round": 0,
+                    "action": decision.action.value,
+                    "reasoning": decision.reasoning,
+                    "confidence": decision.confidence,
+                    "tool_name": None,
+                    "policy": "knowledge_evidence_direct_answer",
+                },
+            )
+            return finish_with_answer(outcome=AgentOutcome.DIRECT_ANSWER)
+
         def settle() -> AgentRunResult:
             """收敛本轮：用现有证据做一次充分性校验，据结果回答或转追问。
 
@@ -156,23 +218,11 @@ class AgentStateMachine:
                 },
             )
             if verdict.sufficient:
-                answer = self._answerer.answer(
-                    question,
-                    chunks,
-                    _format_invocations(invocations),
-                    context_messages=context_messages,
-                )
-                record("generate_answer", {"length": len(answer)})
-                return AgentRunResult(
+                return finish_with_answer(
                     outcome=AgentOutcome.TOOL_ASSISTED_ANSWER
                     if invocations
                     else AgentOutcome.DIRECT_ANSWER,
-                    answer=answer,
-                    steps=steps,
-                    decisions=decisions,
-                    invocations=invocations,
-                    sufficiency=verdict,
-                    citations=chunks,
+                    verdict=verdict,
                 )
             record("settle_insufficient", {"reason": "router_stuck"})
             return AgentRunResult(
@@ -212,6 +262,22 @@ class AgentStateMachine:
             )
 
             if decision.action is RouteAction.INSUFFICIENT:
+                if (
+                    not retried_explicit_tool_route
+                    and not is_knowledge_only_question(question)
+                    and rounds < limit
+                ):
+                    retried_explicit_tool_route = True
+                    prior.append(
+                        "用户的问题包含明确的实时查询或操作意图。若可用工具能够覆盖，"
+                        "即使缺少参数也必须选择 call_tool 和对应工具；只填写用户明确"
+                        "提供的参数，缺失字段由服务端统一追问。"
+                    )
+                    record(
+                        "retry_explicit_tool_route",
+                        {"reason": "explicit_tool_request_routed_as_insufficient"},
+                    )
+                    continue
                 verdict = SufficiencyVerdict(
                     sufficient=False,
                     reasoning=decision.reasoning,
@@ -232,6 +298,41 @@ class AgentStateMachine:
                 )
 
             if decision.action is RouteAction.CALL_TOOL:
+                field_issues = self._tool_field_issues(
+                    decision, question, context_messages
+                )
+                if field_issues:
+                    tool = (
+                        self._registry.get(decision.tool_name or "")
+                        if self._registry.has(decision.tool_name or "")
+                        else None
+                    )
+                    is_write = bool(tool and tool.is_write)
+                    verdict = SufficiencyVerdict(
+                        sufficient=False,
+                        reasoning="工具参数缺失、格式非法，或包含用户未明确提供的值。",
+                        missing_information=field_issues,
+                        suggested_next_step=(
+                            "请补充上述字段后，我会先展示待确认的操作。"
+                            if is_write
+                            else "请补充上述字段后，我再查询实时状态。"
+                        ),
+                    )
+                    record(
+                        "request_write_details" if is_write else "request_tool_details",
+                        {"tool_name": decision.tool_name, "missing_fields": field_issues},
+                    )
+                    return AgentRunResult(
+                        outcome=AgentOutcome.INSUFFICIENT_INFORMATION,
+                        answer=self._answerer.insufficient_answer(
+                            field_issues, verdict.suggested_next_step
+                        ),
+                        steps=steps,
+                        decisions=decisions,
+                        invocations=invocations,
+                        sufficiency=verdict,
+                        citations=chunks,
+                    )
                 signature = _call_signature(
                     decision.tool_name or "", decision.tool_arguments, self._registry
                 )
@@ -260,21 +361,9 @@ class AgentStateMachine:
                             "missing_information": verdict.missing_information,
                         },
                     )
-                    answer = self._answerer.answer(
-                        question,
-                        chunks,
-                        _format_invocations(invocations),
-                        context_messages=context_messages,
-                    )
-                    record("generate_answer", {"length": len(answer)})
-                    return AgentRunResult(
+                    return finish_with_answer(
                         outcome=AgentOutcome.TOOL_ASSISTED_ANSWER,
-                        answer=answer,
-                        steps=steps,
-                        decisions=decisions,
-                        invocations=invocations,
-                        sufficiency=verdict,
-                        citations=chunks,
+                        verdict=verdict,
                     )
 
                 if signature in failed_calls:
@@ -306,7 +395,29 @@ class AgentStateMachine:
                         return settle()
                     continue
 
-                pending = self._maybe_pending_write(decision)
+                pending, missing_write_fields = self._prepare_pending_write(decision)
+                if missing_write_fields:
+                    verdict = SufficiencyVerdict(
+                        sufficient=False,
+                        reasoning="写操作缺少通过参数校验所需的信息。",
+                        missing_information=missing_write_fields,
+                        suggested_next_step="请补充上述字段后，我会先展示待确认的操作。",
+                    )
+                    record(
+                        "request_write_details",
+                        {"tool_name": decision.tool_name, "missing_fields": missing_write_fields},
+                    )
+                    return AgentRunResult(
+                        outcome=AgentOutcome.INSUFFICIENT_INFORMATION,
+                        answer=self._answerer.insufficient_answer(
+                            missing_write_fields, verdict.suggested_next_step
+                        ),
+                        steps=steps,
+                        decisions=decisions,
+                        invocations=invocations,
+                        sufficiency=verdict,
+                        citations=chunks,
+                    )
                 if pending is not None:
                     record(
                         "await_write_confirmation",
@@ -339,6 +450,12 @@ class AgentStateMachine:
                     # 偶发一次重复失败也会被算进"卡住"，提前收敛掉正常的多步链路
                     unproductive_rounds = 0
                     executed_calls.add(signature)
+                    if not inv.is_write:
+                        # 成功的只读结果就是当前问题所需的实时事实；不再让同一个
+                        # 本地模型二次审核并错误否决，导致无信息循环或步数耗尽。
+                        return finish_with_answer(
+                            outcome=AgentOutcome.TOOL_ASSISTED_ANSWER
+                        )
                 else:
                     failed_calls[signature] = inv.error_code or "UNKNOWN"
 
@@ -355,23 +472,11 @@ class AgentStateMachine:
             )
 
             if verdict.sufficient:
-                answer = self._answerer.answer(
-                    question,
-                    chunks,
-                    _format_invocations(invocations),
-                    context_messages=context_messages,
-                )
-                record("generate_answer", {"length": len(answer)})
-                return AgentRunResult(
+                return finish_with_answer(
                     outcome=AgentOutcome.TOOL_ASSISTED_ANSWER
                     if invocations
                     else AgentOutcome.DIRECT_ANSWER,
-                    answer=answer,
-                    steps=steps,
-                    decisions=decisions,
-                    invocations=invocations,
-                    sufficiency=verdict,
-                    citations=chunks,
+                    verdict=verdict,
                 )
 
             prior.append(
@@ -384,21 +489,13 @@ class AgentStateMachine:
         # 比直接回"无法回答"更有用，也不会掩盖校验未通过的事实。
         has_evidence = bool(chunks) or any(inv.success for inv in invocations)
         if has_evidence:
-            answer = self._answerer.answer(
-                question,
-                chunks,
-                _format_invocations(invocations),
-                context_messages=context_messages,
-                caveat=(
-                    "以下回答基于已收集到的资料，但未通过完整的信息充分性校验，"
-                    "请自行核对关键结论。"
-                ),
+            return finish_with_answer(
+                outcome=AgentOutcome.MAX_STEPS_EXCEEDED,
             )
-        else:
-            answer = self._answerer.insufficient_answer(
-                ["经过多轮尝试仍未收集到足够信息"],
-                "建议提交工单由人工工程师接手处理",
-            )
+        answer = self._answerer.insufficient_answer(
+            ["经过多轮尝试仍未收集到足够信息"],
+            "建议提交工单由人工工程师接手处理",
+        )
         return AgentRunResult(
             outcome=AgentOutcome.MAX_STEPS_EXCEEDED,
             answer=answer,
@@ -408,30 +505,107 @@ class AgentStateMachine:
             citations=chunks,
         )
 
-    def _maybe_pending_write(
+    def _prepare_pending_write(
         self, decision: RouteDecision
-    ) -> PendingWriteAction | None:
+    ) -> tuple[PendingWriteAction | None, list[str]]:
         name = decision.tool_name or ""
         if not self._registry.has(name):
-            return None
+            return None, []
         tool = self._registry.get(name)
         if not tool.is_write:
-            return None
-        # 参数合法性预校验：不校验的话，用户会先看到确认卡片、点了"确认执行"
-        # 之后才发现 TOOL_ARGS_INVALID——白白走完一轮用户交互才发现路由给的
-        # 参数根本不满足工具 schema。校验失败时返回 None，让调用方落到正常的
-        # execute_tool 分支，按已有的失败处理逻辑记录 failed_calls 并允许重试，
-        # 不需要另开一套错误处理路径。
+            return None, []
+
+        # request_id 是服务端幂等键，不是要求用户或模型补齐的业务信息。
+        # 只在其余参数已可能完整时补入，避免把缺字段的写请求误包装成确认操作。
+        raw_args = dict(decision.tool_arguments)
+        raw_args.setdefault("request_id", f"agent-{uuid.uuid4().hex}")
         try:
-            tool.parse_args(decision.tool_arguments)
-        except ToolError:
-            return None
+            parsed = tool.parse_args(raw_args)
+        except ToolError as exc:
+            violations = exc.details.get("violations", [])
+            fields = [str(item.get("field", "参数")) for item in violations]
+            return None, _format_tool_field_issues(tool, fields) or ["写操作所需参数"]
+        normalized = parsed.model_dump(mode="json")
+        decision.tool_arguments = normalized
         return PendingWriteAction(
             tool_name=name,
-            arguments=dict(decision.tool_arguments),
+            arguments=normalized,
             description=tool.description,
             reasoning=decision.reasoning,
+        ), []
+
+    def _tool_field_issues(
+        self,
+        decision: RouteDecision,
+        question: str,
+        context_messages: list[dict[str, str]] | None,
+    ) -> list[str]:
+        name = decision.tool_name or ""
+        if not self._registry.has(name):
+            return []
+        tool = self._registry.get(name)
+        raw_args = dict(decision.tool_arguments)
+        if tool.is_write:
+            raw_args["request_id"] = "server-validation-placeholder"
+        issues: list[str] = []
+        try:
+            tool.parse_args(raw_args)
+        except ToolError as exc:
+            violations = exc.details.get("violations", [])
+            issues.extend(str(item.get("field", "参数")) for item in violations)
+
+        grounded_fields = set(tool.user_grounded_fields)
+        if "namespace" in tool.args_schema.model_fields:
+            grounded_fields.add("namespace")
+        user_text = _normalize_grounding_text(
+            "\n".join(
+            [
+                *(message.get("content", "") for message in context_messages or [] if message.get("role") == "user"),
+                question,
+            ]
+            )
         )
+        for field_name in sorted(grounded_fields):
+            value = decision.tool_arguments.get(field_name)
+            if not isinstance(value, str) or not value.strip():
+                continue
+            normalized_value = _normalize_grounding_text(value)
+            if not normalized_value or normalized_value not in user_text:
+                issues.append(field_name)
+        return _format_tool_field_issues(tool, issues)
+
+
+def _normalize_grounding_text(value: str) -> str:
+    normalized = unicodedata.normalize("NFKC", value).casefold()
+    return "".join(character for character in normalized if character.isalnum())
+
+
+def _format_tool_field_issues(
+    tool: Tool[Any, Any], field_paths: list[str]
+) -> list[str]:
+    properties = tool.args_schema.model_json_schema().get("properties", {})
+    formatted: list[str] = []
+    for field_path in sorted(set(field_paths)):
+        if not field_path or field_path == "request_id":
+            continue
+        field_schema = properties.get(field_path)
+        if not isinstance(field_schema, dict):
+            formatted.append(field_path)
+            continue
+
+        min_length = field_schema.get("minLength")
+        max_length = field_schema.get("maxLength")
+        has_min = isinstance(min_length, int) and not isinstance(min_length, bool)
+        has_max = isinstance(max_length, int) and not isinstance(max_length, bool)
+        if has_min and has_max:
+            formatted.append(f"{field_path}（{min_length}–{max_length} 个字符）")
+        elif has_min:
+            formatted.append(f"{field_path}（至少 {min_length} 个字符）")
+        elif has_max:
+            formatted.append(f"{field_path}（最多 {max_length} 个字符）")
+        else:
+            formatted.append(field_path)
+    return formatted
 
 
 def _inv_detail(inv: ToolInvocation) -> dict[str, Any]:
