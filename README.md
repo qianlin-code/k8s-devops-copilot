@@ -33,7 +33,7 @@
 
 ### Agent 与工具闭环
 
-- 结构化路由：`answer`、`call_tool`、`insufficient`。
+- 结构化路由：answer、call_tool、insufficient。
 - 工具覆盖 Pod、Deployment、告警与工单演示状态。
 - 只读工具缓存；写工具二次确认、幂等、白名单和全量审计。
 - 信息充分性校验减少“证据不足仍强答”的情况。
@@ -93,7 +93,7 @@ flowchart LR
 
 同一历史运行还记录知识路由 86.7%、工具路由 100%、faithfulness 0.718、answer relevancy 0.691。
 
-这些是旧配置下的历史基线，不代表当前发布指标。签名实现候选 `a65080ab`（tree `33f85ce3`）已用 DeepSeek V4 Pro + BGE-M3 + BGE Reranker 完成固定 39 条严格门禁 `39/39` 和人工证据复核，在独立干净克隆中通过 Python 3.11 全量 `298 passed`、契约 `70 passed`、前端 typecheck/build、密钥扫描和 npm audit（0 vulnerabilities），并完成 DeepSeek Docker 后端主链路、Compose 双容器健康及重启持久化复验。复用同一候选镜像和卷的无付费模型补证又直接在 Compose frontend `15191` 通过路由/权限 Playwright `3/3`、真实管理员知识审核 `1/1` 和最终状态 trace `1/1`；拒绝后知识库、Qdrant 与 BM25 完全不变，批准后新增文档可经生产 Retriever 最终过滤命中。随后修正数学上不可达的旧 hard-MRR 差值合同并完成无付费 Docker 复验：完整链路 Hit@5 `1.0`、MRR `0.944444`、hard MRR `0.931373`、hard Hit@3 `1.0`，真实 Rerank 无 fallback，修正后的八项检索门禁全部通过。最后在同一 Compose frontend `15191` 以唯一一次 DeepSeek V4 Pro 顶层问题完成真实知识问答 Playwright `1/1`：混合检索和真实 Rerank 生效、生成状态 verified、9 个引用命中原始语料“Pod 停滞在 Pending 状态”，历史页面重开后回答、trace 与引用保持一致，知识库/vector/BM25 前后不变。历史 `hard_mrr_improvement=0.044117647 < 0.15` 原值保留；旧合同要求 hard MRR 达到 `1.037255`，超过理论上限 `1.0`，因此合同修正不是降低质量要求。发布演示 GIF 已用本地 Ollama `qwen2.5:7b` 实际 Compose 流程生成并完成脱敏复核；本地完整链路、Docker 与演示材料验收已通过。公开仓库首轮 GitHub Actions 的 Python 3.11 后端与 Node 20 前端任务均已通过，workflow 无需修改；签名 tag 与 Release 页面按上方链接完成最终发布。Qwen-Max 正式复裁仅保留为参考，实验条件、历史分歧与最新结果见 [评测与失败案例](docs/评测与失败案例.md)。
+这些是旧配置下的历史基线，不代表当前发布指标。签名实现候选 a65080ab（tree 33f85ce3）已用 DeepSeek V4 Pro + BGE-M3 + BGE Reranker 完成固定 39 条严格门禁 39/39 和人工证据复核，在独立干净克隆中通过 Python 3.11 全量 298 passed、契约 70 passed、前端 typecheck/build、密钥扫描和 npm audit（0 vulnerabilities），并完成 DeepSeek Docker 后端主链路、Compose 双容器健康及重启持久化复验。复用同一候选镜像和卷的无付费模型补证又直接在 Compose frontend 15191 通过路由/权限 Playwright 3/3、真实管理员知识审核 1/1 和最终状态 trace 1/1；拒绝后知识库、Qdrant 与 BM25 完全不变，批准后新增文档可经生产 Retriever 最终过滤命中。随后修正数学上不可达的旧 hard-MRR 差值合同并完成无付费 Docker 复验：完整链路 Hit@5 1.0、MRR 0.944444、hard MRR 0.931373、hard Hit@3 1.0，真实 Rerank 无 fallback，修正后的八项检索门禁全部通过。最后在同一 Compose frontend 15191 以唯一一次 DeepSeek V4 Pro 顶层问题完成真实知识问答 Playwright 1/1：混合检索和真实 Rerank 生效、生成状态 verified、9 个引用命中原始语料“Pod 停滞在 Pending 状态”，历史页面重开后回答、trace 与引用保持一致，知识库/vector/BM25 前后不变。历史 hard_mrr_improvement=0.044117647 < 0.15 原值保留；旧合同要求 hard MRR 达到 1.037255，超过理论上限 1.0，因此合同修正不是降低质量要求。发布演示 GIF 已用本地 Ollama qwen2.5:7b 实际 Compose 流程生成并完成脱敏复核；本地完整链路、Docker 与演示材料验收已通过。公开仓库首轮 GitHub Actions 的 Python 3.11 后端与 Node 20 前端任务均已通过，workflow 无需修改；签名 tag 与 Release 页面按上方链接完成最终发布。Qwen-Max 正式复裁仅保留为参考，实验条件、历史分歧与最新结果见 [评测与失败案例](docs/评测与失败案例.md)。
 
 ## 技术栈
 
@@ -131,7 +131,7 @@ uv pip install --python .venv\Scripts\python.exe -r $requirements
 .venv\Scripts\python.exe -m uvicorn app.main:app --reload --port 8000
 ```
 
-默认发布组合要求在私有 `backend/.env` 填写 `DEEPSEEK_API_KEY`，并由 Ollama 提供 `bge-m3` Embedding。启用真实 BGE Rerank 时，再安装 `rerank` 可选依赖及匹配环境的 PyTorch。把 `LLM_PROVIDER` 显式改为 `ollama` 可启用本地 `qwen2.5:7b` 兼容模式，但该模式未达到 v1.0 发布生成质量门槛。
+默认发布组合要求在私有 backend/.env 填写 DEEPSEEK_API_KEY，并由 Ollama 提供 bge-m3 Embedding。启用真实 BGE Rerank 时，再安装 rerank 可选依赖及匹配环境的 PyTorch。把 LLM_PROVIDER 显式改为 ollama 可启用本地 qwen2.5:7b 兼容模式，但该模式未达到 v1.0 发布生成质量门槛。
 
 ### 2. 初始化演示数据
 
@@ -164,9 +164,9 @@ npm.cmd run dev
 
 ### Docker 演示
 
-项目根目录已有 `docker-compose.yml`。Docker Desktop、Docker Compose 和宿主机 Ollama
-是前置条件；请先将 `.env.example` 复制为 `backend/.env`，并准备其中配置的聊天与
-Embedding 模型。容器通过 `host.docker.internal` 访问宿主机 Ollama：
+项目根目录已有 docker-compose.yml。Docker Desktop、Docker Compose 和宿主机 Ollama
+是前置条件；请先将 .env.example 复制为 backend/.env，并准备其中配置的聊天与
+Embedding 模型。容器通过 host.docker.internal 访问宿主机 Ollama：
 
 ```powershell
 docker compose config
@@ -184,11 +184,11 @@ docker compose down
 ```
 
 初始化账号密码仅由运行时环境变量提供，脚本不会回显密码。Compose
-是否满足“干净克隆可复现”仍需按 `项目验收标准.md` 正式验收；存在文件不等于部署已经通过。
+是否满足“干净克隆可复现”仍需按 项目验收标准.md 正式验收；存在文件不等于部署已经通过。
 
 ### 本地真实验收
 
-启动 Docker Desktop 与 Ollama，并拉取 `bge-m3` 后，可在隔离的
+启动 Docker Desktop 与 Ollama，并拉取 bge-m3 后，可在隔离的
 Compose project 中运行下列命令。脚本使用随机运行时密码、独立端口和独立数据卷，默认
 开启真实 BGE Reranker；不会自动停止容器或删除证据：
 
@@ -197,7 +197,7 @@ Compose project 中运行下列命令。脚本使用随机运行时密码、独�
 .venv\Scripts\python.exe scripts\run_local_acceptance.py
 ```
 
-证据会写入被 Git 忽略的 `backend/acceptance-evidence/<UTC 时间>/`，其中包含脱敏 HTTP
+证据会写入被 Git 忽略的 backend/acceptance-evidence/<UTC 时间>/，其中包含脱敏 HTTP
 结果、SSE/评测日志、Playwright 报告和成功截图。该命令不调用 Qwen 裁判模型。
 
 ## 测试与评测
@@ -212,20 +212,20 @@ npm.cmd run typecheck
 npm.cmd run build
 ```
 
-`npm.cmd run e2e`、真实 HTTP 脚本、真实 Ollama 检索与 `eval_ragas.py` 不属于离线 CI；它们可能写入
+npm.cmd run e2e、真实 HTTP 脚本、真实 Ollama 检索与 eval_ragas.py 不属于离线 CI；它们可能写入
 数据库或调用付费模型，执行前阅读 [AGENTS.md](AGENTS.md) 的验证说明。
 
-截至 2026-08-12，commit `31d6551` 的独立干净克隆已使用 Python 3.11 从 `uv.lock` 安装依赖并通过 139 项离线测试（exit 0）；前端 lockfile 安装、类型检查、生产构建与 npm audit（0 vulnerabilities）也均已通过。
-语料 fake 入库得到 50 个有效 chunk；commit `31d6551` 已在独立克隆的隔离 Docker/Ollama 现场完成健康、初始化、HTTP/JWT、SSE、真实检索与 Playwright 复核。离线 CI 不替代该路径，完整通过项、失败案例和未验证边界见
+截至 2026-08-12，commit 31d6551 的独立干净克隆已使用 Python 3.11 从 uv.lock 安装依赖并通过 139 项离线测试（exit 0）；前端 lockfile 安装、类型检查、生产构建与 npm audit（0 vulnerabilities）也均已通过。
+语料 fake 入库得到 50 个有效 chunk；commit 31d6551 已在独立克隆的隔离 Docker/Ollama 现场完成健康、初始化、HTTP/JWT、SSE、真实检索与 Playwright 复核。离线 CI 不替代该路径，完整通过项、失败案例和未验证边界见
 [项目验收标准](项目验收标准.md)。
 
 ## 项目限制
 
 - 集群工具使用演示数据，不连接生产 Kubernetes。
 - embedded Qdrant 和单机 SQLite 面向本地作品演示，不是高可用生产架构。
-- 本地 `qwen2.5:7b` 仅作为显式离线兼容模式，仍可能过度调用工具、过度拒答或证据选择失败；失败案例公开保留。
+- 本地 qwen2.5:7b 仅作为显式离线兼容模式，仍可能过度调用工具、过度拒答或证据选择失败；失败案例公开保留。
 - Docker/Ollama 需要额外的本机服务与模型，属于可选真实验收路径，不属于干净克隆的离线 CI；仓库内 GIF 是本地演示证据，不等同公网生产部署。
-- 发布候选已完成离线干净克隆、隔离 Docker 完整链路和远端 GitHub Actions 验收；项目没有公网生产部署，发布状态与资产以 `v1.0.0` Release 页面为准。
+- 发布候选已完成离线干净克隆、隔离 Docker 完整链路和远端 GitHub Actions 验收；项目没有公网生产部署，发布状态与资产以 v1.0.0 Release 页面为准。
 
 ## 文档导航
 
