@@ -131,7 +131,9 @@ def _check_bm25() -> str:
 def _check_llm() -> str:
     client = get_llm_client()
     reply = client.chat(
-        [{"role": "user", "content": "ping"}], temperature=0.0, max_tokens=5
+        [{"role": "user", "content": "Reply with exactly OK."}],
+        temperature=0.0,
+        max_tokens=32,
     )
     return f"model={client.model} replied={len(reply)}chars"
 
