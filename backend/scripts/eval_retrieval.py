@@ -43,6 +43,7 @@ class ConfigResult:
     rerank_verified: bool = True
     rerank_failure_reasons: list[str] = field(default_factory=list)
     evaluated_case_count: int = 0
+    case_ranks: dict[str, int | None] = field(default_factory=dict)
 
 
 def _default_workdir() -> Path:
@@ -103,7 +104,9 @@ FIXED_HARD_CASE_IDS = (
 )
 MIN_FULL_HIT_AT_5 = 0.85
 MIN_FULL_MRR = 0.80
-MIN_HARD_MRR_IMPROVEMENT = 0.15
+MIN_HARD_MRR = 0.90
+MIN_HARD_HIT_AT_3 = 1.0
+LEGACY_MIN_HARD_MRR_IMPROVEMENT = 0.15
 
 
 def _is_hit(text: str, keywords: list[str]) -> bool:
@@ -126,32 +129,81 @@ def _validate_hard_subset(cases: list[dict[str, object]]) -> list[str]:
 
 
 def _release_gates(results: list[ConfigResult]) -> dict[str, object]:
-    base, _, reranked = results
+    base, hybrid, reranked = results
+    hard_mrr_improvement = reranked.hard_mrr - base.hard_mrr
+    hybrid_hard_mrr_improvement = reranked.hard_mrr - hybrid.hard_mrr
+    remaining_headroom = max(0.0, 1.0 - base.hard_mrr)
+    legacy_required_hard_mrr = base.hard_mrr + LEGACY_MIN_HARD_MRR_IMPROVEMENT
     checks = {
         "full_hit_at_5": reranked.hit_at_5 >= MIN_FULL_HIT_AT_5,
         "full_mrr": reranked.mrr >= MIN_FULL_MRR,
+        "hard_mrr": reranked.hard_mrr >= MIN_HARD_MRR,
+        "hard_hit_at_3": reranked.hard_hit_at_3 >= MIN_HARD_HIT_AT_3,
         "full_hit_at_5_non_regression": reranked.hit_at_5 >= base.hit_at_5,
-        "hard_mrr_improvement": (
-            reranked.hard_mrr - base.hard_mrr
-        ) >= MIN_HARD_MRR_IMPROVEMENT,
+        "hard_mrr_non_regression_vs_vector": reranked.hard_mrr >= base.hard_mrr,
+        "hard_mrr_improvement_vs_hybrid": hybrid_hard_mrr_improvement > 0.0,
+        "rerank_verified": reranked.rerank_verified,
     }
     return {
-        "passed": all(checks.values()) and reranked.rerank_verified,
+        "passed": all(checks.values()),
         "checks": checks,
         "thresholds": {
             "min_full_hit_at_5": MIN_FULL_HIT_AT_5,
             "min_full_mrr": MIN_FULL_MRR,
+            "min_hard_mrr": MIN_HARD_MRR,
+            "min_hard_hit_at_3": MIN_HARD_HIT_AT_3,
             "full_hit_at_5_must_not_regress": True,
-            "min_hard_mrr_improvement": MIN_HARD_MRR_IMPROVEMENT,
+            "hard_mrr_must_not_regress_vs_vector": True,
+            "hard_mrr_must_improve_vs_hybrid": True,
+            "rerank_must_be_verified": True,
         },
         "observed": {
             "full_hit_at_5": reranked.hit_at_5,
             "full_mrr": reranked.mrr,
             "full_mrr_improvement": reranked.mrr - base.mrr,
             "hard_mrr": reranked.hard_mrr,
-            "hard_mrr_improvement": reranked.hard_mrr - base.hard_mrr,
+            "hard_hit_at_3": reranked.hard_hit_at_3,
+            "hard_mrr_improvement": hard_mrr_improvement,
+            "hard_mrr_improvement_vs_hybrid": hybrid_hard_mrr_improvement,
+            "hard_mrr_remaining_headroom": remaining_headroom,
+        },
+        "legacy_diagnostic": {
+            "min_hard_mrr_improvement": LEGACY_MIN_HARD_MRR_IMPROVEMENT,
+            "required_hard_mrr": legacy_required_hard_mrr,
+            "max_possible_hard_mrr_improvement": remaining_headroom,
+            "feasible": legacy_required_hard_mrr <= 1.0,
         },
     }
+
+
+def _case_rank_comparison(
+    cases: list[dict[str, object]], results: list[ConfigResult]
+) -> list[dict[str, object]]:
+    vector, hybrid, reranked = results
+    comparisons: list[dict[str, object]] = []
+    for case in cases:
+        case_id = str(case["id"])
+        vector_rank = vector.case_ranks.get(case_id)
+        hybrid_rank = hybrid.case_ranks.get(case_id)
+        reranked_rank = reranked.case_ranks.get(case_id)
+        comparisons.append(
+            {
+                "case_id": case_id,
+                "difficulty": case.get("difficulty"),
+                "vector_rank": vector_rank,
+                "hybrid_rank": hybrid_rank,
+                "reranked_rank": reranked_rank,
+                "rank_gain_vs_vector": _rank_gain(vector_rank, reranked_rank),
+                "rank_gain_vs_hybrid": _rank_gain(hybrid_rank, reranked_rank),
+            }
+        )
+    return comparisons
+
+
+def _rank_gain(before: int | None, after: int | None) -> int | None:
+    if before is None or after is None:
+        return None
+    return before - after
 
 
 def main() -> int:
@@ -276,6 +328,7 @@ def _run(fake: bool, docs_dir: Path, eval_set: Path, workdir: Path, report_file:
         hard_total = 0
         hard_ranks: list[int] = []
         rerank_failures: list[str] = []
+        case_ranks: dict[str, int | None] = {}
 
         for case in cases:
             started = time.perf_counter()
@@ -296,6 +349,7 @@ def _run(fake: bool, docs_dir: Path, eval_set: Path, workdir: Path, report_file:
                 )
                 note = rerank_stage.note if rerank_stage else "missing_rerank_stage"
                 rerank_failures.append(f"{case['id']}: {note or 'not_applied'}")
+                case_ranks[str(case["id"])] = None
                 # Do not mix the RRF fallback rank into Rerank metrics.
                 continue
 
@@ -312,6 +366,7 @@ def _run(fake: bool, docs_dir: Path, eval_set: Path, workdir: Path, report_file:
             ]
             if ranks:
                 best = min(ranks)
+                case_ranks[str(case["id"])] = best
                 reciprocal += 1.0 / best
                 best_ranks.append(best)
                 for k in hits:
@@ -321,6 +376,7 @@ def _run(fake: bool, docs_dir: Path, eval_set: Path, workdir: Path, report_file:
                     hard_reciprocal += 1.0 / best
                     hard_ranks.append(best)
             else:
+                case_ranks[str(case["id"])] = None
                 misses.append(case["id"])
 
         total = len(cases)
@@ -346,6 +402,7 @@ def _run(fake: bool, docs_dir: Path, eval_set: Path, workdir: Path, report_file:
                 rerank_verified=not rerank_failures,
                 rerank_failure_reasons=rerank_failures,
                 evaluated_case_count=total - len(rerank_failures),
+                case_ranks=case_ranks,
             )
         )
 
@@ -376,6 +433,8 @@ def _run(fake: bool, docs_dir: Path, eval_set: Path, workdir: Path, report_file:
                 "source_case_count": len(all_cases),
                 "case_count": len(cases),
                 "results": [asdict(result) for result in results],
+                "case_rank_comparison": _case_rank_comparison(cases, results),
+                "rank_gain_positive_means_promotion": True,
                 "release_gates": release_gates,
             },
             ensure_ascii=False,

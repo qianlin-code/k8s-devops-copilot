@@ -1,6 +1,6 @@
 [project]
 name = "enterprise-support-copilot"
-version = "0.1.0"
+version = "1.0.0"
 description = "Enterprise IT support Copilot with RAG + Agent closed loop"
 requires-python = ">=3.11"
 dependencies = [

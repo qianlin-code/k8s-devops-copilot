@@ -119,7 +119,7 @@ async def _warmup_llm() -> None:
 def create_app() -> FastAPI:
     app = FastAPI(
         title="Enterprise Support Copilot",
-        version="0.1.0",
+        version="1.0.0",
         description=(
             "RAG + Agent closed-loop copilot for enterprise IT support. "
             "Every response carries the full execution trace."
