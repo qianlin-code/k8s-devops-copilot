@@ -6,7 +6,9 @@
 
 ![核心流程演示](docs/assets/demo.gif)
 
-[GitHub 仓库](https://github.com/qianlin-code/k8s-devops-copilot) · [GitHub Actions](https://github.com/qianlin-code/k8s-devops-copilot/actions/runs/31821164169) · [v1.0.0 Release](https://github.com/qianlin-code/k8s-devops-copilot/releases/tag/v1.0.0)
+[GitHub 仓库](https://github.com/qianlin-code/k8s-devops-copilot) · [GitHub Actions](https://github.com/qianlin-code/k8s-devops-copilot/actions/runs/31821525323) · [v1.0.0 Release](https://github.com/qianlin-code/k8s-devops-copilot/releases/tag/v1.0.0)
+
+v1.0.0 已作为公开工程演示版发布。Release 使用签名 tag `v1.0.0`，指向提交 `76882d9859878bae675f610e6d9c09747b090b08`；验收矩阵仍明确保留尚未单独验证的必过项，不把发布等同于生产就绪。
 
 项目目录沿用旧名称“企业级智能客服 Copilot”以保留 Git 历史，对外统一使用当前名称。
 
@@ -184,7 +186,7 @@ docker compose down
 ```
 
 初始化账号密码仅由运行时环境变量提供，脚本不会回显密码。Compose
-是否满足“干净克隆可复现”仍需按 项目验收标准.md 正式验收；存在文件不等于部署已经通过。
+当前 Release 已完成干净克隆和 Docker/Compose 证据收口；仍请查看 [项目验收标准](项目验收标准.md) 中明确列出的未验证边界，存在文件不等于生产部署已经通过。
 
 ### 本地真实验收
 
